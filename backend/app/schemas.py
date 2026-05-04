@@ -27,6 +27,12 @@ class TokenData(BaseModel):
 class OrganizationBase(BaseModel):
     name: str
     subscription_tier: str
+    sector: Optional[str] = None
+    headcount_range: Optional[str] = None
+    revenue_tier: Optional[str] = None
+    legal_entity_type: Optional[str] = None
+    countries_of_operation: Optional[str] = None # JSON string
+    core_technologies: Optional[str] = None # JSON string
 
 class OrganizationOut(OrganizationBase):
     id: int
@@ -40,6 +46,16 @@ class UserOut(UserBase):
     id: int
     role: RoleEnum
     organization_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Document Schemas
+class DocumentOut(BaseModel):
+    id: int
+    file_name: str
+    status: str
     created_at: datetime
 
     class Config:

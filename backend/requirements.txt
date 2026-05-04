@@ -17,3 +17,7 @@ playwright
 beautifulsoup4
 pytest
 httpx
+boto3
+pdfplumber
+python-docx
+langchain-text-splitters
