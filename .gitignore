@@ -1,31 +1,43 @@
+# Dependencies
 node_modules/
+**/node_modules/
+
+# Next.js
 .next/
+**/.next/
 out/
+
+# Build outputs
 build/
+dist/
+
+# Environment variables
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+**/.env*.local
+
+# Debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+
+# System files
 .DS_Store
 *.pem
-# Product Requirements & Planning
+*.key
 
+# Product Requirements & Planning
 EuroGrant_AI_PRD.md
 EuroGrant_AI_PRD_v1.docx
-og*
-.pnpm-debug.log*
-
-# Local env files
-.env*.local
-
-# Vercel
-.vercel
+.planning/
+.gemini_security/
 
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+**/next-env.d.ts
+**/tsconfig.tsbuildinfo
