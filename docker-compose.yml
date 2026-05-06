@@ -7,6 +7,7 @@ services:
       - ./backend/.env
     volumes:
       - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
       db:
         condition: service_healthy
@@ -15,7 +16,7 @@ services:
 
   worker:
     build: ./backend
-    command: celery -A app.worker.celery worker --loglevel=info
+    command: celery -A app.worker.celery_app worker --loglevel=info
     env_file:
       - ./backend/.env
     volumes:
@@ -54,13 +55,15 @@ services:
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-eurogrant}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d eurogrant"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-eurogrant}"]
       interval: 10s
       timeout: 5s
       retries: 5
