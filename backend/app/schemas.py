@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator, Field
 from typing import Optional, List
 from .models import RoleEnum, ProposalStatus
 from datetime import datetime
@@ -9,8 +9,9 @@ class UserBase(BaseModel):
     full_name: Optional[str] = None
 
 class UserCreate(UserBase):
-    password: str
+    password: str = Field(..., min_length=8)
     organization_name: str # First user creates the org
+    invite_code: str
 
 class UserLogin(BaseModel):
     email: EmailStr
