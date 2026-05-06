@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from .. import models, schemas, auth, database
@@ -7,6 +8,11 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
 def register(user_in: schemas.UserCreate, db: Session = Depends(database.get_db)):
+    # Validate invite code
+    master_invite_code = os.getenv("MASTER_INVITE_CODE", "EUROGRANT_2026")
+    if user_in.invite_code != master_invite_code:
+        raise HTTPException(status_code=403, detail="Invalid invite code")
+
     # Check if user already exists
     user = db.query(models.User).filter(models.User.email == user_in.email).first()
     if user:
@@ -20,6 +26,10 @@ def register(user_in: schemas.UserCreate, db: Session = Depends(database.get_db)
         db.commit()
         db.refresh(org)
     
+    # Check if org already has users to determine role
+    existing_user_count = db.query(models.User).filter(models.User.organization_id == org.id).count()
+    user_role = models.RoleEnum.ADMIN if existing_user_count == 0 else models.RoleEnum.VIEWER
+    
     # Create user
     hashed_password = auth.get_password_hash(user_in.password)
     new_user = models.User(
@@ -27,7 +37,7 @@ def register(user_in: schemas.UserCreate, db: Session = Depends(database.get_db)
         hashed_password=hashed_password,
         full_name=user_in.full_name,
         organization_id=org.id,
-        role=models.RoleEnum.ADMIN # First user in org is Admin
+        role=user_role
     )
     db.add(new_user)
     db.commit()
