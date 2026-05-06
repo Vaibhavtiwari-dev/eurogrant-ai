@@ -40,4 +40,4 @@ EuroGrant_AI_PRD_v1.docx
 *.tsbuildinfo
 next-env.d.ts
 **/next-env.d.ts
-**/tsconfig.tsbuildinfo
+**/tsconfig.tsbuildinfo\r\n\r\n# Temporary scripts\r\ncommit_in_parts.ps1
