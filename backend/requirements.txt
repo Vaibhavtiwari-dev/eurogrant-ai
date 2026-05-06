@@ -5,16 +5,14 @@ psycopg2-binary
 alembic
 pydantic-settings
 pydantic[email]
-python-jose[cryptography]
+PyJWT
 passlib[bcrypt]
 python-multipart
 celery
 redis
 python-dotenv
 openai
-anthropic
 pinecone
-playwright
 beautifulsoup4
 pytest
 httpx
