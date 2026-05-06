@@ -83,10 +83,6 @@ export default function LoginPage() {
             </Link>
           </div>
         </div>
-        
-        <p className="mt-8 text-center text-[10px] text-on-surface-variant/40 font-black uppercase tracking-widest">
-          Secure Multi-Factor Authentication Active
-        </p>
       </div>
     </div>
   );
