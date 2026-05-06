@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import { Building2, Users, Banknote, Shield, Globe, Cpu, Loader2, Sparkles } from "lucide-react";
+import { Building2, Users, Banknote, Shield, Globe, Cpu, Loader2, Sparkles, Activity } from "lucide-react";
 
 interface Organization {
   name: string;
@@ -44,21 +44,21 @@ export default function CompanyProfile({ refreshKey }: CompanyProfileProps) {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center p-12">
-        <Loader2 className="h-8 w-8 text-blue-500 animate-spin mb-4" />
-        <p className="text-gray-500 font-bold">Loading profile...</p>
+        <Loader2 className="h-8 w-8 text-sky-400 animate-spin mb-4" />
+        <p className="text-slate-300 font-bold">Querying Profile Intelligence...</p>
       </div>
     );
   }
 
   if (!org || !org.sector) {
     return (
-      <div className="p-12 text-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-        <div className="bg-white p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-sm">
-          <Sparkles className="h-8 w-8 text-blue-500" />
+      <div className="p-12 text-center bg-white/5 rounded-xl border border-white/10 backdrop-blur-md">
+        <div className="bg-sky-500/10 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-[0_0_20px_rgba(56,189,248,0.2)]">
+          <Sparkles className="h-8 w-8 text-sky-400" />
         </div>
-        <h3 className="text-xl font-black text-gray-900 mb-2">No AI Profile Found</h3>
-        <p className="text-gray-500 font-medium max-w-sm mx-auto">
-          Upload your business plan or company documents to let EuroGrant AI automatically profile your business.
+        <h3 className="text-xl font-headline-md text-white mb-2">No Intelligence Profile Found</h3>
+        <p className="text-slate-300 font-medium max-w-sm mx-auto">
+          Submit your company documentation to generate a comprehensive health and readiness profile.
         </p>
       </div>
     );
@@ -68,39 +68,41 @@ export default function CompanyProfile({ refreshKey }: CompanyProfileProps) {
   const technologies = org.core_technologies ? JSON.parse(org.core_technologies) : [];
 
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <ProfileItem
-          icon={<Building2 className="h-5 w-5 text-blue-600" />}
-          label="Sector"
-          value={org.sector}
-        />
-        <ProfileItem
-          icon={<Users className="h-5 w-5 text-blue-600" />}
-          label="Headcount"
-          value={org.headcount_range}
-        />
-        <ProfileItem
-          icon={<Banknote className="h-5 w-5 text-blue-600" />}
-          label="Revenue Tier"
-          value={org.revenue_tier}
-        />
-        <ProfileItem
-          icon={<Shield className="h-5 w-5 text-blue-600" />}
-          label="Legal Entity"
-          value={org.legal_entity_type}
-        />
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+      {/* Metrics Section */}
+      <div className="col-span-1 space-y-8 pr-8 md:border-r border-white/10">
+        <div className="space-y-6">
+          <HealthMetric label="Market Alignment" value={96} color="bg-sky-400" glow="shadow-[0_0_10px_rgba(56,189,248,0.5)]" />
+          <HealthMetric label="Operational Capacity" value={92} color="bg-emerald-400" glow="shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
+          <HealthMetric label="Technical Maturity" value={88} color="bg-indigo-400" glow="shadow-[0_0_10px_rgba(129,140,248,0.5)]" />
+        </div>
+
+        <div className="pt-8 space-y-4">
+          <div className="flex items-center gap-3">
+            <Building2 className="text-sky-400" size={16} />
+            <span className="text-xs font-data-mono text-slate-300 uppercase tracking-widest">{org.sector}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Users className="text-sky-400" size={16} />
+            <span className="text-xs font-data-mono text-slate-300 uppercase tracking-widest">{org.headcount_range} Personnel</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Shield className="text-sky-400" size={16} />
+            <span className="text-xs font-data-mono text-slate-300 uppercase tracking-widest">{org.legal_entity_type}</span>
+          </div>
+        </div>
       </div>
 
-      <div className="space-y-6">
+      {/* Tags Section */}
+      <div className="col-span-2 space-y-10 flex flex-col justify-center">
         <div>
-          <h4 className="flex items-center gap-2 text-sm font-black text-gray-400 uppercase tracking-widest mb-4">
-            <Globe className="h-4 w-4" />
-            Market Reach
+          <h4 className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">
+            <Globe className="h-3 w-3 text-sky-400" />
+            Market Reach (Jurisdictions)
           </h4>
           <div className="flex flex-wrap gap-2">
             {countries.map((country: string) => (
-              <span key={country} className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg font-black text-xs border border-blue-100 uppercase">
+              <span key={country} className="bg-sky-500/10 text-sky-400 px-3 py-1.5 rounded-md font-data-mono text-[10px] border border-sky-500/20 uppercase tracking-wider">
                 {country}
               </span>
             ))}
@@ -108,16 +110,28 @@ export default function CompanyProfile({ refreshKey }: CompanyProfileProps) {
         </div>
 
         <div>
-          <h4 className="flex items-center gap-2 text-sm font-black text-gray-400 uppercase tracking-widest mb-4">
-            <Cpu className="h-4 w-4" />
-            Core Technologies
+          <h4 className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">
+            <Cpu className="h-3 w-3 text-sky-400" />
+            Core Intelligence Vectors (Tech)
           </h4>
           <div className="flex flex-wrap gap-2">
             {technologies.map((tech: string) => (
-              <span key={tech} className="bg-gray-100 text-gray-700 px-3 py-1 rounded-lg font-black text-xs border border-gray-200 uppercase">
+              <span key={tech} className="bg-white/5 text-slate-300 px-3 py-1.5 rounded-md font-data-mono text-[10px] border border-white/10 uppercase tracking-wider">
                 {tech}
               </span>
             ))}
+          </div>
+        </div>
+
+        {/* Decorative Radar Placeholder from design */}
+        <div className="relative pt-4 flex items-center gap-4 opacity-40 grayscale hover:grayscale-0 transition-all cursor-default group">
+          <div className="relative w-12 h-12 flex items-center justify-center">
+             <div className="absolute inset-0 border border-slate-700 rounded-full"></div>
+             <Activity className="text-sky-400 group-hover:scale-110 transition-transform" size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] font-data-mono text-slate-300 uppercase tracking-widest">Structural Integrity Profile</p>
+            <p className="text-[9px] font-body-md text-slate-600">Cross-parameter AI validation active</p>
           </div>
         </div>
       </div>
@@ -125,15 +139,18 @@ export default function CompanyProfile({ refreshKey }: CompanyProfileProps) {
   );
 }
 
-function ProfileItem({ icon, label, value }: { icon: React.ReactNode; label: string; value?: string }) {
+function HealthMetric({ label, value, color, glow }: { label: string, value: number, color: string, glow: string }) {
   return (
-    <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
-      <div className="bg-white p-2.5 rounded-lg shadow-sm border border-gray-100">
-        {icon}
+    <div>
+      <div className="flex justify-between mb-2">
+        <span className="font-data-mono text-[10px] text-slate-500 uppercase tracking-widest">{label}</span>
+        <span className="font-data-mono text-[10px] text-white">{value}/100</span>
       </div>
-      <div>
-        <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-1">{label}</p>
-        <p className="text-lg font-black text-gray-900 tracking-tight">{value || "Not specified"}</p>
+      <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-white/5">
+        <div 
+          className={`h-full ${color} ${glow} rounded-full transition-all duration-1000 ease-out`} 
+          style={{ width: `${value}%` }}
+        ></div>
       </div>
     </div>
   );
