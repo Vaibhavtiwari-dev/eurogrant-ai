@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { UserPlus, Mail, Lock, User, Building } from "lucide-react";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -26,71 +27,91 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Create your account
-          </h2>
+    <div className="min-h-screen flex items-center justify-center text-on-surface px-4 relative">
+      <div className="max-w-md w-full z-10">
+        <div className="text-center mb-10">
+          <h1 className="font-headline-lg text-headline-lg text-white font-black tracking-tight mb-2">EuroGrant AI</h1>
+          <p className="font-label-sm text-label-sm text-secondary tracking-widest uppercase">Elite Intelligence Enrollment</p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && <div className="text-red-500 text-sm text-center">{error}</div>}
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <input
-                type="text"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Full Name"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-              />
+
+        <div className="glass-card rounded-xl p-8 shadow-2xl border-l-4 border-tertiary-fixed/30">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="bg-tertiary-fixed/10 p-2 rounded-lg text-tertiary-fixed">
+              <UserPlus size={20} />
             </div>
-            <div>
-              <input
-                type="text"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Organization Name"
-                value={organizationName}
-                onChange={(e) => setOrganizationName(e.target.value)}
-              />
-            </div>
-            <div>
-              <input
-                type="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <input
-                type="password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+            <h2 className="font-headline-md text-headline-md text-white">Create Account</h2>
           </div>
 
-          <div>
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            {error && (
+              <div className="bg-error/10 border border-error/20 text-error text-xs font-black uppercase tracking-widest p-4 rounded-lg text-center animate-pulse">
+                {error}
+              </div>
+            )}
+            
+            <div className="space-y-4">
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-40" size={18} />
+                <input
+                  type="text"
+                  required
+                  className="w-full bg-surface-container/50 border border-white/10 rounded-lg py-3 pl-12 pr-4 text-white placeholder-on-surface-variant/40 focus:outline-none focus:ring-2 focus:ring-tertiary-fixed/50 focus:border-tertiary-fixed/50 transition-all font-body-md"
+                  placeholder="Full Name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+              </div>
+
+              <div className="relative">
+                <Building className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-40" size={18} />
+                <input
+                  type="text"
+                  required
+                  className="w-full bg-surface-container/50 border border-white/10 rounded-lg py-3 pl-12 pr-4 text-white placeholder-on-surface-variant/40 focus:outline-none focus:ring-2 focus:ring-tertiary-fixed/50 focus:border-tertiary-fixed/50 transition-all font-body-md"
+                  placeholder="Organization Name"
+                  value={organizationName}
+                  onChange={(e) => setOrganizationName(e.target.value)}
+                />
+              </div>
+
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-40" size={18} />
+                <input
+                  type="email"
+                  required
+                  className="w-full bg-surface-container/50 border border-white/10 rounded-lg py-3 pl-12 pr-4 text-white placeholder-on-surface-variant/40 focus:outline-none focus:ring-2 focus:ring-tertiary-fixed/50 focus:border-tertiary-fixed/50 transition-all font-body-md"
+                  placeholder="Intelligence ID (Email)"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-40" size={18} />
+                <input
+                  type="password"
+                  required
+                  className="w-full bg-surface-container/50 border border-white/10 rounded-lg py-3 pl-12 pr-4 text-white placeholder-on-surface-variant/40 focus:outline-none focus:ring-2 focus:ring-tertiary-fixed/50 focus:border-tertiary-fixed/50 transition-all font-body-md"
+                  placeholder="Security Key (Password)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="w-full py-4 bg-tertiary-fixed text-on-tertiary-fixed font-black uppercase tracking-widest text-[11px] rounded-xl hover:bg-white hover:text-black transition-all shadow-[0_0_20px_rgba(104,252,191,0.2)] hover:shadow-[0_0_30px_rgba(104,252,191,0.4)]"
             >
-              Register
+              Enroll Agent
             </button>
+          </form>
+
+          <div className="mt-8 text-center">
+            <Link href="/login" className="font-label-sm text-[11px] text-on-surface-variant hover:text-tertiary-fixed uppercase tracking-widest transition-colors">
+              Already Enrolled? Secure Sign In
+            </Link>
           </div>
-        </form>
-        <div className="text-center">
-          <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
-            Already have an account? Sign in
-          </Link>
         </div>
       </div>
     </div>
