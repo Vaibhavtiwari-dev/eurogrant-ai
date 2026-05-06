@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
 from typing import List
 from .. import models, schemas, database
-from ..auth import get_current_user
+from ..auth import get_current_user, require_role
 from ..services.s3 import s3_service
 from ..worker import process_company_document
 import uuid
@@ -12,7 +12,8 @@ router = APIRouter(
     tags=["uploads"]
 )
 
-ALLOWED_EXTENSIONS = {"pdf", "docx", "pptx"}
+ALLOWED_EXTENSIONS = {"pdf", "docx"}
+MAX_FILE_SIZE = 25 * 1024 * 1024 # 25MB
 
 def get_file_extension(filename: str) -> str:
     return filename.split(".")[-1].lower() if "." in filename else ""
@@ -31,8 +32,20 @@ async def list_company_documents(
 async def upload_company_document(
     file: UploadFile = File(...),
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(require_role([models.RoleEnum.ADMIN, models.RoleEnum.WRITER]))
 ):
+    # SEC-3: Validate file size
+    file.file.seek(0, 2)
+    size = file.file.tell()
+    file.file.seek(0)
+    
+    if size > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File too large. Maximum size is 25MB."
+        )
+
+    # BE-2: Validate extension
     extension = get_file_extension(file.filename)
     if extension not in ALLOWED_EXTENSIONS:
         raise HTTPException(
