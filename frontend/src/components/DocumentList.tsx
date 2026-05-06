@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import { FileText, Clock, CheckCircle, XCircle, Loader2, Radar, Sparkles } from "lucide-react";
+import { FileText, Loader2, Radar } from "lucide-react";
 
 interface Document {
   id: number;
@@ -19,30 +19,44 @@ export default function DocumentList({ refreshKey }: DocumentListProps) {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchDocuments = async () => {
-    try {
-      const response = await apiFetch("/uploads/documents");
-      if (response.ok) {
-        const data = await response.json();
-        setDocuments(data);
+  useEffect(() => {
+    let ignore = false;
+    const fetchData = async () => {
+      try {
+        const response = await apiFetch("/uploads/documents");
+        if (response.ok && !ignore) {
+          const data = await response.json();
+          setDocuments(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch documents:", error);
+      } finally {
+        if (!ignore) {
+          setIsLoading(false);
+        }
       }
-    } catch (error) {
-      console.error("Failed to fetch documents:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
+    fetchData();
+    return () => { ignore = true; };
+  }, [refreshKey]);
 
   useEffect(() => {
-    fetchDocuments();
-    const interval = setInterval(() => {
-        if (documents.some(doc => doc.status === "pending")) {
-            fetchDocuments();
+    const hasPending = documents.some(doc => doc.status === "pending");
+    if (!hasPending) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const response = await apiFetch("/uploads/documents");
+        if (response.ok) {
+          const data = await response.json();
+          setDocuments(data);
         }
+      } catch (error) {
+        console.error("Failed to fetch documents:", error);
+      }
     }, 5000);
-    
     return () => clearInterval(interval);
-  }, [refreshKey, documents.some(doc => doc.status === "pending")]);
+  }, [documents]);
 
   if (isLoading && documents.length === 0) {
     return (
