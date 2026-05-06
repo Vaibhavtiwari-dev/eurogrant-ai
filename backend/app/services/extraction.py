@@ -1,9 +1,19 @@
 import pdfplumber
 import docx
+import re
 from io import BytesIO
 import logging
 
 logger = logging.getLogger(__name__)
+
+def redact_pii(text: str) -> str:
+    # Redact Emails
+    text = re.sub(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', '[REDACTED_EMAIL]', text)
+    # Redact Phone numbers (more specific pattern: + followed by 7-15 digits, or standard formats)
+    # Matches patterns like +1234567890, (123) 456-7890, 123-456-7890
+    phone_pattern = r'(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}'
+    text = re.sub(phone_pattern, '[REDACTED_PHONE]', text)
+    return text
 
 class ExtractionService:
     def extract_text(self, file_content: bytes, content_type: str) -> str:
