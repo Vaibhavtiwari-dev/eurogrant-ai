@@ -23,12 +23,21 @@ export const metadata: Metadata = {
     siteName: "EuroGrant AI",
     locale: "en_US",
     type: "website",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "EuroGrant AI Elite Intelligence",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "EuroGrant AI | Elite Intelligence for EU Public Grants",
     description: "Automate your EU grant search and public tender proposals with EuroGrant AI.",
     creator: "@eurogrant_ai",
+    images: ["/og-image.jpg"],
   },
   robots: {
     index: true,
@@ -41,9 +50,27 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "EuroGrant AI",
+    "operatingSystem": "Web",
+    "applicationCategory": "BusinessApplication",
+    "description": "Elite AI Intelligence for EU Public Grants and Tenders.",
+    "offers": {
+      "@type": "Offer",
+      "price": "299.00",
+      "priceCurrency": "EUR"
+    }
+  };
+
   return (
     <html lang="en" className="dark">
       <body className="font-body-md">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <AuthProvider>
           {children}
         </AuthProvider>
