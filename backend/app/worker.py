@@ -4,7 +4,7 @@ from celery import Celery
 from .database import SessionLocal
 from .models import CompanyDocument, DocumentStatus, Organization
 from .services.s3 import s3_service
-from .services.extraction import extraction_service
+from .services.extraction import extraction_service, redact_pii
 from .services.vector_db import vector_service
 from openai import OpenAI
 import logging
@@ -39,11 +39,14 @@ def process_company_document(document_id: int):
         text = extraction_service.extract_text(file_content, doc.content_type)
         logger.info(f"Extracted {len(text)} characters from document {document_id}")
         
+        # Redact PII
+        safe_text = redact_pii(text)
+        
         # Vectorize and upsert to Pinecone
-        vector_service.upsert_text(text, doc_id=doc.id, org_id=doc.organization_id)
+        vector_service.upsert_text(safe_text, doc_id=doc.id, org_id=doc.organization_id)
 
         # Extract company profile attributes via LLM
-        extract_company_profile(text, doc.organization_id, db)
+        extract_company_profile(safe_text, doc.organization_id, db)
 
         doc.status = DocumentStatus.PROCESSED
         db.commit()
@@ -93,6 +96,7 @@ def extract_company_profile(text: str, org_id: int, db):
             org.legal_entity_type = profile_data.get("legal_entity_type")
             org.countries_of_operation = json.dumps(profile_data.get("countries_of_operation", []))
             org.core_technologies = json.dumps(profile_data.get("core_technologies", []))
+            db.commit()
             logger.info(f"Updated profile for organization {org_id}")
             
     except Exception as e:
