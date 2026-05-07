@@ -77,7 +77,7 @@ export default function DocumentList({ refreshKey }: DocumentListProps) {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
-        <h3 className="font-headline-md text-headline-md text-slate-300 flex items-center gap-sm">
+        <h3 className="font-headline-md text-headline-md text-slate-300 flex items-center gap-3">
           <Radar className="text-sky-400" size={20} />
           Discovery Feed
         </h3>
