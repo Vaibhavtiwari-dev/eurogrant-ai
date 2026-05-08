@@ -34,7 +34,13 @@ export default function Header({ user, setIsSidebarOpen }: HeaderProps) {
       className="md:ml-64 h-20 sticky top-0 z-40 bg-transparent flex justify-between items-center px-10 text-slate-200 font-headline-md tracking-wide transition-all duration-300"
     >
       <div className="flex items-center">
-        <Menu className="md:hidden mr-4 cursor-pointer text-white" onClick={() => setIsSidebarOpen(true)} />
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="md:hidden mr-4 p-2 -ml-2 rounded-lg text-white hover:bg-slate-800/40 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400"
+          aria-label={t("toggleSidebar")}
+        >
+          <Menu className="cursor-pointer" />
+        </button>
         <h2 className="text-xl text-white opacity-90 hidden md:block text-shadow-sm">{t("dashboardTitle")}</h2>
       </div>
       <div className="flex items-center gap-6">
