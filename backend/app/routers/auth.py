@@ -8,8 +8,14 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
 def register(user_in: schemas.UserCreate, db: Session = Depends(database.get_db)):
-    # Validate invite code
-    master_invite_code = os.getenv("MASTER_INVITE_CODE", "EUROGRANT_2026")
+    # Validate invite code - Mandatory environment variable check
+    master_invite_code = os.getenv("MASTER_INVITE_CODE")
+    if not master_invite_code:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Registration system is misconfigured. MASTER_INVITE_CODE environment variable is missing."
+        )
+        
     if user_in.invite_code != master_invite_code:
         raise HTTPException(status_code=403, detail="Invalid invite code")
 
