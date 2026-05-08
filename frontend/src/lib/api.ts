@@ -4,11 +4,22 @@ import { z } from "zod";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-export const apiFetch = async <T>(
+export async function apiFetch<T>(
+  endpoint: string,
+  options: RequestInit,
+  schema: z.ZodSchema<T>
+): Promise<T>;
+
+export async function apiFetch(
+  endpoint: string,
+  options?: RequestInit
+): Promise<Response>;
+
+export async function apiFetch<T>(
   endpoint: string, 
   options: RequestInit = {}, 
   schema?: z.ZodSchema<T>
-): Promise<T | Response> => {
+): Promise<T | Response> {
   // Check if we are in the browser before accessing localStorage
   const isBrowser = typeof window !== "undefined";
   const token = isBrowser ? localStorage.getItem("token") : null;
@@ -46,4 +57,4 @@ export const apiFetch = async <T>(
   }
 
   return response;
-};
+}

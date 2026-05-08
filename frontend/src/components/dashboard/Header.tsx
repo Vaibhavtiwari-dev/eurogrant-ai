@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 
 interface HeaderProps {
-  user: any;
+  user: { full_name?: string | null; email: string } | null;
   setIsSidebarOpen: (open: boolean) => void;
 }
 

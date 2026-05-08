@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { LogIn, Mail, Lock, ShieldCheck, Zap } from "lucide-react";
+import { Mail, Lock, ShieldCheck, Zap } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");

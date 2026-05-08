@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 import { Plus } from "lucide-react";
 
 interface DashboardHeaderProps {
-  variants: any;
+  variants: Variants;
 }
 
 export default function DashboardHeader({ variants }: DashboardHeaderProps) {

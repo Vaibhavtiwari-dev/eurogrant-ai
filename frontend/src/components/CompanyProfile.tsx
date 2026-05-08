@@ -73,7 +73,7 @@ export default function CompanyProfile({ refreshKey }: CompanyProfileProps) {
     if (!jsonStr) return [];
     try {
       return JSON.parse(jsonStr);
-    } catch (e) {
+    } catch {
       return [];
     }
   };

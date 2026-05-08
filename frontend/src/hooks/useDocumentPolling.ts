@@ -12,7 +12,7 @@ export function useDocumentPolling(intervalMs: number = 5000) {
       const response = await apiFetch("/uploads/documents");
       if (response.ok) {
         const docs = await response.json();
-        const hasPending = docs.some((doc: any) => doc.status === "pending");
+        const hasPending = docs.some((doc: { status: string }) => doc.status === "pending");
         
         if (!hasPending && isProcessing) {
           // Just finished processing

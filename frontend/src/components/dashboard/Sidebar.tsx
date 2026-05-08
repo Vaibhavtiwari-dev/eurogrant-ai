@@ -30,7 +30,7 @@ const sidebarVariants = {
   }
 };
 
-export default function Sidebar({ isMobile, isSidebarOpen, setIsSidebarOpen, setIsUploadModalOpen, logout }: SidebarProps) {
+export default function Sidebar({ isMobile, isSidebarOpen, setIsUploadModalOpen, logout }: SidebarProps) {
   return (
     <motion.nav 
       initial={false}
