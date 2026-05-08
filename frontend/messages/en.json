@@ -8,6 +8,26 @@
     "profile": "Profile",
     "uploads": "Uploads",
     "settings": "Settings",
-    "logout": "Logout"
+    "logout": "Logout",
+    "submit": "Submit Documentation"
+  },
+  "Header": {
+    "title": "Secure Terminal",
+    "status": "Status: Operational",
+    "profile": "Deep Dive"
+  },
+  "Dashboard": {
+    "probabilityTitle": "Probability Indicator",
+    "probabilityDesc": "Win likelihood based on AI matching",
+    "companyIntelligenceTitle": "Company Intelligence Profile",
+    "viewDeepDive": "View Deep Dive"
+  },
+  "Upload": {
+    "title": "Submit Documentation",
+    "description": "Upload your business plan, pitch deck, or financials for AI-driven extraction.",
+    "dropzone": "Drop intelligence artifacts here or click to browse",
+    "support": "Supported: PDF, DOCX (Max 20MB)",
+    "uploading": "Encrypting & Uploading...",
+    "success": "Documentation Securely Uploaded"
   }
 }

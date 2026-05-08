@@ -8,6 +8,26 @@
     "profile": "Profil",
     "uploads": "Uploads",
     "settings": "Einstellungen",
-    "logout": "Abmelden"
+    "logout": "Abmelden",
+    "submit": "Unterlagen Einreichen"
+  },
+  "Header": {
+    "title": "Sicherer Terminal",
+    "status": "Status: Betriebsbereit",
+    "profile": "Detaillierte Analyse"
+  },
+  "Dashboard": {
+    "probabilityTitle": "Wahrscheinlichkeits-Indikator",
+    "probabilityDesc": "Erfolgschance basierend auf KI-Abgleich",
+    "companyIntelligenceTitle": "Unternehmens-Intelligenz-Profil",
+    "viewDeepDive": "Detailansicht"
+  },
+  "Upload": {
+    "title": "Dokumentation Einreichen",
+    "description": "Laden Sie Ihren Businessplan, Pitch Deck oder Finanzberichte für die KI-gestützte Extraktion hoch.",
+    "dropzone": "Dokumente hier ablegen oder zum Durchsuchen klicken",
+    "support": "Unterstützt: PDF, DOCX (Max. 20MB)",
+    "uploading": "Verschlüsselung & Upload...",
+    "success": "Dokumentation sicher hochgeladen"
   }
 }
