@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { Link, useRouter } from "@/i18n/routing";
 import { motion } from "framer-motion";
 import { Mail, Lock, User, Building, KeyRound, ArrowRight } from "lucide-react";
 
