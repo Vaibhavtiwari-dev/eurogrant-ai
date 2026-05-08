@@ -3,13 +3,18 @@
 import React, { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { FileText, Loader2, Radar } from "lucide-react";
+import { z } from "zod";
 
-interface Document {
-  id: number;
-  file_name: string;
-  status: "pending" | "processed" | "failed";
-  created_at: string;
-}
+const DocumentSchema = z.object({
+  id: z.number(),
+  file_name: z.string(),
+  status: z.enum(["pending", "processed", "failed"]),
+  created_at: z.string(),
+});
+
+const DocumentListSchema = z.array(DocumentSchema);
+
+type Document = z.infer<typeof DocumentSchema>;
 
 interface DocumentListProps {
   refreshKey: number;
@@ -23,9 +28,8 @@ export default function DocumentList({ refreshKey }: DocumentListProps) {
     let ignore = false;
     const fetchData = async () => {
       try {
-        const response = await apiFetch("/uploads/documents");
-        if (response.ok && !ignore) {
-          const data = await response.json();
+        const data = await apiFetch("/uploads/documents", {}, DocumentListSchema);
+        if (Array.isArray(data) && !ignore) {
           setDocuments(data);
         }
       } catch (error) {
@@ -46,9 +50,8 @@ export default function DocumentList({ refreshKey }: DocumentListProps) {
 
     const interval = setInterval(async () => {
       try {
-        const response = await apiFetch("/uploads/documents");
-        if (response.ok) {
-          const data = await response.json();
+        const data = await apiFetch("/uploads/documents", {}, DocumentListSchema);
+        if (Array.isArray(data)) {
           setDocuments(data);
         }
       } catch (error) {
@@ -60,7 +63,7 @@ export default function DocumentList({ refreshKey }: DocumentListProps) {
 
   if (isLoading && documents.length === 0) {
     return (
-      <div className="flex justify-center p-12">
+      <div className="flex justify-center p-12" role="status" aria-label="Loading documents">
         <Loader2 className="animate-spin h-8 w-8 text-sky-400 opacity-50" />
       </div>
     );
@@ -69,7 +72,7 @@ export default function DocumentList({ refreshKey }: DocumentListProps) {
   if (documents.length === 0) {
     return (
       <div className="text-center p-12 border border-dashed border-white/10 rounded-xl bg-white/5 backdrop-blur-md">
-        <p className="text-slate-300 font-medium opacity-60">Discovery feed is empty. Submit documentation to begin analysis.</p>
+        <p className="text-slate-300 font-medium opacity-60 text-sm">Discovery feed is empty. Submit documentation to begin analysis.</p>
       </div>
     );
   }
@@ -78,15 +81,15 @@ export default function DocumentList({ refreshKey }: DocumentListProps) {
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
         <h3 className="font-headline-md text-headline-md text-slate-300 flex items-center gap-3">
-          <Radar className="text-sky-400" size={20} />
+          <Radar className="text-sky-400" size={20} aria-hidden="true" />
           Discovery Feed
         </h3>
-        <span className="font-label-sm text-label-sm text-slate-300 uppercase tracking-widest opacity-60">
+        <span className="font-label-sm text-sm text-slate-300 uppercase tracking-widest opacity-60">
           {documents.length} Insights Found
         </span>
       </div>
 
-      <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+      <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar" aria-label="Document list">
         {documents.map((doc) => (
           <DocumentCard key={doc.id} doc={doc} />
         ))}
@@ -122,10 +125,10 @@ function DocumentCard({ doc }: { doc: Document }) {
   const styles = getStatusStyles();
 
   return (
-    <div className={`glass-card rounded-xl p-6 hover:translate-x-2 transition-transform duration-500 cursor-pointer border-l-4 ${styles.border} group`}>
+    <div className={`glass-card rounded-xl p-6 hover:translate-x-2 transition-transform duration-500 cursor-pointer border-l-4 ${styles.border} group`} role="listitem">
       <div className="flex justify-between items-start">
         <div className="flex gap-4">
-          <div className="bg-white/5 p-3 rounded-lg border border-white/10 group-hover:border-white/20 transition-colors">
+          <div className="bg-white/5 p-3 rounded-lg border border-white/10 group-hover:border-white/20 transition-colors" aria-hidden="true">
             <FileText className="text-slate-300" size={24} />
           </div>
           <div>
@@ -135,7 +138,7 @@ function DocumentCard({ doc }: { doc: Document }) {
             </p>
           </div>
         </div>
-        <span className={`px-3 py-1 rounded-full font-data-mono text-xs border ${styles.tag}`}>
+        <span className={`px-3 py-1 rounded-full font-data-mono text-xs border ${styles.tag}`} role="status">
           {styles.match}
         </span>
       </div>
@@ -143,11 +146,11 @@ function DocumentCard({ doc }: { doc: Document }) {
       <div className="mt-6 flex flex-wrap gap-3">
         <InsightTag label="AI Alignment" />
         {doc.status === "processed" && <InsightTag label="Vectorized" active />}
-        <span className="ml-auto text-[10px] text-slate-500 font-data-mono uppercase tracking-widest flex items-center gap-2">
+        <time className="ml-auto text-xs text-slate-500 font-data-mono uppercase tracking-widest flex items-center gap-2" dateTime={doc.created_at}>
           {new Date(doc.created_at).toLocaleDateString()}
-          <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
+          <span className="w-1 h-1 bg-slate-600 rounded-full" aria-hidden="true"></span>
           {new Date(doc.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </span>
+        </time>
       </div>
     </div>
   );
@@ -155,8 +158,8 @@ function DocumentCard({ doc }: { doc: Document }) {
 
 function InsightTag({ label, active = false }: { label: string, active?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-800/50 text-slate-300 font-label-sm text-[10px] border border-white/5">
-      <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-400' : 'bg-sky-400'} animate-pulse`}></span>
+    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-800/50 text-slate-300 font-label-sm text-xs border border-white/5">
+      <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-400' : 'bg-sky-400'} animate-pulse`} aria-hidden="true"></span>
       {label}
     </span>
   );

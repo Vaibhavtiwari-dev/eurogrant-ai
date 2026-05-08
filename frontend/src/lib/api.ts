@@ -1,8 +1,14 @@
 "use strict";
 
+import { z } from "zod";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
+export const apiFetch = async <T>(
+  endpoint: string, 
+  options: RequestInit = {}, 
+  schema?: z.ZodSchema<T>
+): Promise<T | Response> => {
   // Check if we are in the browser before accessing localStorage
   const isBrowser = typeof window !== "undefined";
   const token = isBrowser ? localStorage.getItem("token") : null;
@@ -32,6 +38,11 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
         window.location.href = "/login";
     }
     return response;
+  }
+
+  if (response.ok && schema) {
+    const data = await response.json();
+    return schema.parse(data);
   }
 
   return response;
