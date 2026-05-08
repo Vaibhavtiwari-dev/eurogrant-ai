@@ -20,10 +20,7 @@ def test_process_company_document_success(db_session, mock_s3):
     db_session.commit()
     
     # Mock services
-    mock_s3_response = {'Body': MagicMock(read=lambda: b"fake content")}
-    with patch("app.services.s3.s3_service.s3_client") as mock_client:
-        mock_client.get_object.return_value = mock_s3_response
-        
+    with patch("app.worker.s3_service.get_fileobj", return_value=b"fake content"):
         with patch("app.worker.extraction_service.extract_text", return_value="Extracted text"), \
              patch("app.worker.redact_pii", return_value="Safe text"), \
              patch("app.worker.vector_service.upsert_text") as mock_vector, \
