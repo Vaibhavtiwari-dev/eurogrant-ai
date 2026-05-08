@@ -17,7 +17,8 @@
     "authorizedAgent": "Autorisierter Agent",
     "clearanceLevel": "Freigabestufe 4",
     "secureTerminal": "Sicherer Terminal",
-    "statusOperational": "Status: Betriebsbereit"
+    "statusOperational": "Status: Betriebsbereit",
+    "toggleSidebar": "Mobile Navigation umschalten"
   },
   "Sidebar": {
     "logoSubtitle": "Elite-Intelligenz",
@@ -67,5 +68,11 @@
     "techVectors": "Kern-Intelligenz-Vektoren (Tech)",
     "structuralIntegrity": "Strukturelles Integritätsprofil",
     "crossValidation": "Parameterübergreifende KI-Validierung aktiv"
+  },
+  "Error": {
+    "title": "Systembruch / Kritischer Fehler",
+    "description": "Die Anwendung hat eine unerwartete Protokollverletzung festgestellt. Die Systemdiagnose weist auf eine kritische Ausnahme hin.",
+    "retry": "Wiederherstellungsprotokoll initialisieren",
+    "fallback": "Ein unerwarteter Anwendungsfehler ist aufgetreten. Der sichere Terminalzustand blieb erhalten."
   }
 }

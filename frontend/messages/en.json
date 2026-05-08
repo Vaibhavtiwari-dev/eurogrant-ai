@@ -17,7 +17,8 @@
     "authorizedAgent": "Authorized Agent",
     "clearanceLevel": "Level 4 Clearance",
     "secureTerminal": "Secure Terminal",
-    "statusOperational": "Status: Operational"
+    "statusOperational": "Status: Operational",
+    "toggleSidebar": "Toggle Mobile Navigation"
   },
   "Sidebar": {
     "logoSubtitle": "Elite Intelligence",
@@ -67,5 +68,11 @@
     "techVectors": "Core Intelligence Vectors (Tech)",
     "structuralIntegrity": "Structural Integrity Profile",
     "crossValidation": "Cross-parameter AI validation active"
+  },
+  "Error": {
+    "title": "System Breach / Critical Failure",
+    "description": "The application has encountered an unexpected protocol breach. System diagnostic indicates a critical exception.",
+    "retry": "Initialize Recovery Protocol",
+    "fallback": "An unexpected application error occurred. Secure terminal state preserved."
   }
 }
