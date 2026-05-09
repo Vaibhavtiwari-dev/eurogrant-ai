@@ -4,12 +4,11 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "@/i18n/routing";
 import DocumentUpload from "@/components/DocumentUpload";
-import DocumentList from "@/components/DocumentList";
-import CompanyProfile from "@/components/CompanyProfile";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Header from "@/components/dashboard/Header";
-import DashboardHeader from "@/components/dashboard/DashboardHeader";
-import ProbabilityIndicator from "@/components/dashboard/ProbabilityIndicator";
+import StatsOverview from "@/components/dashboard/StatsOverview";
+import RAGProgress from "@/components/dashboard/RAGProgress";
+import HotMatches from "@/components/dashboard/HotMatches";
 import { useAuth } from "@/context/AuthContext";
 import { useDocumentPolling } from "@/hooks/useDocumentPolling";
 import { X } from "lucide-react";
@@ -41,7 +40,7 @@ const itemVariants = {
 export default function DashboardPage() {
   const { user, loading, logout } = useAuth();
   const router = useRouter();
-  const { refreshKey, triggerRefresh } = useDocumentPolling();
+  const { triggerRefresh } = useDocumentPolling();
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -70,17 +69,17 @@ export default function DashboardPage() {
 
   if (loading || !user) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-sky-500/20 border-t-sky-500 rounded-full animate-spin"></div>
-          <p className="text-slate-400 font-label-sm uppercase tracking-widest animate-pulse">Establishing Secure Uplink...</p>
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <div className="flex flex-col items-center gap-6">
+          <div className="w-16 h-16 border-4 border-emerald/10 border-t-emerald-light rounded-full animate-spin"></div>
+          <p className="text-emerald-light/60 font-bold uppercase tracking-[0.2em] text-xs animate-pulse">Establishing Secure Uplink...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen text-on-background relative">
+    <div className="min-h-screen bg-background text-on-background selection:bg-emerald/10">
       <Sidebar 
         isMobile={isMobile}
         isSidebarOpen={isSidebarOpen}
@@ -98,27 +97,22 @@ export default function DashboardPage() {
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="relative z-10 md:ml-64 pt-8 px-12 pb-24 min-h-screen"
+        className="relative z-10 md:ml-64 pt-12 px-12 pb-32 min-h-screen hero-gradient"
       >
-        <div className="max-w-7xl mx-auto space-y-12">
-          <DashboardHeader variants={itemVariants} />
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-12 gap-10">
+            <div className="col-span-12 lg:col-span-8 space-y-12">
+              <StatsOverview variants={itemVariants} />
+              <motion.div variants={itemVariants}>
+                <RAGProgress />
+              </motion.div>
+            </div>
 
-          <div className="grid grid-cols-12 gap-8">
-            <ProbabilityIndicator variants={itemVariants} />
-
-            <motion.div variants={itemVariants} className="col-span-12 lg:col-span-8">
-              <DocumentList refreshKey={refreshKey} />
-            </motion.div>
-
-            <motion.div variants={itemVariants} className="col-span-12">
-              <div className="glass-card rounded-2xl p-8">
-                <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
-                  <h3 className="font-headline-md text-headline-md text-slate-300 text-shadow-sm">Company Intelligence Profile</h3>
-                  <button className="text-sky-400 font-label-sm text-label-sm hover:text-sky-300 transition-colors">View Deep Dive</button>
-                </div>
-                <CompanyProfile refreshKey={refreshKey} />
-              </div>
-            </motion.div>
+            <div className="col-span-12 lg:col-span-4">
+              <motion.div variants={itemVariants}>
+                <HotMatches />
+              </motion.div>
+            </div>
           </div>
         </div>
       </motion.main>
@@ -130,7 +124,7 @@ export default function DashboardPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" 
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm" 
               onClick={() => setIsUploadModalOpen(false)}
             ></motion.div>
             <motion.div 
@@ -138,18 +132,18 @@ export default function DashboardPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-2xl glass-card rounded-2xl p-8"
+              className="relative w-full max-w-2xl premium-card p-10 bg-surface/90 backdrop-blur-xl"
             >
               <button 
                 aria-label="Close modal"
                 onClick={() => setIsUploadModalOpen(false)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+                className="absolute top-6 right-6 text-on-surface-variant hover:text-emerald-light transition-colors"
               >
                 <X size={24} />
               </button>
-              <div className="mb-8">
-                <h2 className="text-2xl font-headline-lg text-white mb-2">Submit Documentation</h2>
-                <p className="text-slate-300 text-sm">Upload your business plan, pitch deck, or financials for AI-driven extraction.</p>
+              <div className="mb-10">
+                <h2 className="text-3xl font-bold text-on-surface mb-3">Submit Documentation</h2>
+                <p className="text-on-surface-variant text-sm">Upload your business plan, pitch deck, or financials for AI-driven extraction.</p>
               </div>
               <DocumentUpload onUploadSuccess={handleUploadSuccess} />
             </motion.div>
