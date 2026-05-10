@@ -5,5 +5,11 @@ export default createMiddleware(routing);
 
 export const config = {
   // Match only internationalized pathnames
-  matcher: ['/', '/(en|de)/:path*']
+  matcher: [
+    // Enable a redirect to a matching locale at the root
+    '/',
+
+    // Set a cookie to remember the last locale for all requests that are not static files or API routes
+    '/((?!api|_next|_vercel|.*\\..*).*)'
+  ]
 };
