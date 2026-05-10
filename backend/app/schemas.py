@@ -42,6 +42,30 @@ class OrganizationOut(OrganizationBase):
     class Config:
         from_attributes = True
 
+# Dashboard Schemas
+class PipelineOut(BaseModel):
+    id: str
+    title: str
+    status: str
+    progress: int
+    subtext: str
+
+class MatchOut(BaseModel):
+    title: str
+    desc: str
+    score: int
+    time: str
+
+class DashboardStatsOut(BaseModel):
+    active_high_matches: int
+    ai_generation_quality: int
+    total_pipeline_value: float
+
+class DashboardOverviewOut(BaseModel):
+    stats: DashboardStatsOut
+    pipelines: List[PipelineOut]
+    hot_matches: List[MatchOut]
+
 # User Output
 class UserOut(UserBase):
     id: int
