@@ -82,5 +82,6 @@ def test_auth_login_success(db_session):
     assert data["token_type"] == "bearer"
 
 def test_organizations_me_unauthorized():
+    client.cookies.clear()
     response = client.get("/api/v1/organizations/me")
     assert response.status_code == 401
