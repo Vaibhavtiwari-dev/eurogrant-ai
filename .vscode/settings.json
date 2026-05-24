@@ -1,0 +1,4 @@
+{
+  "python.languageServer": "Default",
+  "python.defaultInterpreterPath": "./backend/venv/Scripts/python.exe"
+}
