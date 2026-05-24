@@ -4,13 +4,13 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Link } from "@/i18n/routing";
 import { motion } from "framer-motion";
-import { Mail, Lock, ShieldCheck, Zap, ArrowRight } from "lucide-react";
+import { Mail, Lock, ShieldCheck, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { login, bypassLogin } = useAuth();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,15 +108,6 @@ export default function LoginPage() {
               >
                 <span>Authorize Access</span>
                 <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-              </button>
-
-              <button
-                type="button"
-                onClick={bypassLogin}
-                className="w-full py-3 bg-transparent text-on-surface-variant font-bold uppercase tracking-widest text-[10px] rounded-lg border border-outline hover:bg-emerald/10 hover:text-emerald-light hover:border-emerald-light/30 transition-all flex items-center justify-center gap-2"
-              >
-                <Zap size={14} className="text-gold" />
-                Quick Entry (Dev Mode)
               </button>
             </div>
           </form>

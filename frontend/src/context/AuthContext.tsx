@@ -18,8 +18,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (email: string, password: string, fullName: string, organizationName: string, inviteCode: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
-  bypassLogin: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -31,32 +30,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const checkUser = async () => {
-      const token = localStorage.getItem("token");
-      if (token === "dev-bypass-token") {
-        setUser({
-          id: 1,
-          email: "admin@eurogrant.ai",
-          full_name: "Elite Administrator",
-          role: "ADMIN",
-          organization_id: 1,
-          created_at: new Date().toISOString(),
-        });
-        setLoading(false);
-        return;
-      }
-
-      if (token) {
-        try {
-          const res = await apiFetch("/users/me");
-          if (res && res.ok) {
-            const userData = await res.json();
-            setUser(userData);
-          } else {
-            localStorage.removeItem("token");
-          }
-        } catch (error) {
-          console.error("Auth check failed", error);
+      try {
+        const res = await apiFetch("/users/me");
+        if (res && res.ok) {
+          const userData = await res.json();
+          setUser(userData);
         }
+      } catch (error) {
+        console.error("Auth check failed", error);
       }
       setLoading(false);
     };
@@ -64,28 +45,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Local Bypass check for rapid UI work
-    if (email === "admin@test.com" && password === "password123") {
-      bypassLogin();
-      return { success: true };
-    }
-
     const formData = new URLSearchParams();
     formData.append("username", email);
     formData.append("password", password);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/auth/login`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: formData.toString(),
+        credentials: "include",
       });
 
       if (res.ok) {
-        const data = await res.json();
-        localStorage.setItem("token", data.access_token);
         const userRes = await apiFetch("/users/me");
         if (userRes && userRes.ok) {
           const userData = await userRes.json();
@@ -127,28 +101,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const bypassLogin = () => {
-    const dummyUser = {
-      id: 1,
-      email: "admin@eurogrant.ai",
-      full_name: "Elite Administrator",
-      role: "ADMIN",
-      organization_id: 1,
-      created_at: new Date().toISOString(),
-    };
-    localStorage.setItem("token", "dev-bypass-token");
-    setUser(dummyUser);
-    router.push("/dashboard");
-  };
-
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await apiFetch("/auth/logout", { method: "POST" });
+    } catch {
+      // Best-effort — continue with client-side cleanup regardless
+    }
+    // Clear any legacy localStorage tokens for migration safety
     localStorage.removeItem("token");
     setUser(null);
     router.push("/login");
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, bypassLogin }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

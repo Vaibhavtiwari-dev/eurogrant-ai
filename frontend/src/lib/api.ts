@@ -20,17 +20,11 @@ export async function apiFetch<T>(
   options: RequestInit = {}, 
   schema?: z.ZodSchema<T>
 ): Promise<T | Response> {
-  // Check if we are in the browser before accessing localStorage
   const isBrowser = typeof window !== "undefined";
-  const token = isBrowser ? localStorage.getItem("token") : null;
   
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
   };
-
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
 
   // Only set default content-type if not already set and not FormData
   if (!headers["Content-Type"] && !(options.body instanceof FormData)) {
@@ -40,12 +34,16 @@ export async function apiFetch<T>(
   const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
     ...options,
     headers,
+    credentials: "include",
   });
 
   if (response.status === 401 && isBrowser) {
+    // Clear any legacy localStorage tokens during migration
     localStorage.removeItem("token");
     // Only redirect if we are not already on a public page
-    if (!window.location.pathname.startsWith("/login") && !window.location.pathname.startsWith("/register")) {
+    const path = window.location.pathname;
+    const isPublicPage = path.includes("/login") || path.includes("/register");
+    if (!isPublicPage) {
         window.location.href = "/login";
     }
     return response;
