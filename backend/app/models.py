@@ -23,10 +23,14 @@ class Organization(Base):
     core_technologies = Column(Text) # JSON string
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    match_threshold = Column(Float, default=0.7)
+    alert_email_enabled = Column(Boolean, default=True)
 
     users = relationship("User", back_populates="organization")
     proposals = relationship("Proposal", back_populates="organization")
     documents = relationship("CompanyDocument", back_populates="organization")
+    matches = relationship("GrantMatch", back_populates="organization")
+
 
 class User(Base):
     __tablename__ = "users"
@@ -95,3 +99,18 @@ class Proposal(Base):
 
     organization = relationship("Organization", back_populates="proposals")
     grant = relationship("Grant")
+
+class GrantMatch(Base):
+    __tablename__ = "grant_matches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    grant_id = Column(Integer, ForeignKey("grants.id"), nullable=False)
+    score = Column(Float, nullable=False)
+    explanation = Column(Text)
+    alert_sent = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    organization = relationship("Organization", back_populates="matches")
+    grant = relationship("Grant")
+

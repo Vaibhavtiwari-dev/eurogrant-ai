@@ -34,6 +34,12 @@ class OrganizationBase(BaseModel):
     legal_entity_type: Optional[str] = None
     countries_of_operation: Optional[str] = None # JSON string
     core_technologies: Optional[str] = None # JSON string
+    match_threshold: Optional[float] = 0.7
+    alert_email_enabled: Optional[bool] = True
+
+class OrganizationUpdate(BaseModel):
+    match_threshold: Optional[float] = None
+    alert_email_enabled: Optional[bool] = None
 
 class OrganizationOut(OrganizationBase):
     id: int
@@ -85,3 +91,37 @@ class DocumentOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+# Grant Schemas
+class GrantBase(BaseModel):
+    external_id: str
+    title: str
+    description: str
+    deadline: Optional[datetime] = None
+    funding_range: Optional[str] = None
+    eligibility_criteria: Optional[str] = None
+    scoring_rubric: Optional[str] = None
+    source_url: Optional[str] = None
+    sector_tags: Optional[str] = None # JSON string array
+
+class GrantOut(GrantBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# GrantMatch Schemas
+class GrantMatchOut(BaseModel):
+    id: int
+    organization_id: int
+    grant_id: int
+    score: float
+    explanation: Optional[str] = None
+    alert_sent: bool
+    created_at: datetime
+    grant: Optional[GrantOut] = None
+
+    class Config:
+        from_attributes = True
+
