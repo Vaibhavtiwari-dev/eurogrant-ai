@@ -111,3 +111,42 @@ def test_get_grant_by_id(db_session, authenticated_client):
     # Get non-existent grant
     response = authenticated_client.get("/api/v1/grants/9999")
     assert response.status_code == 404
+
+def test_get_grant_matches_unauthorized():
+    response = client.get("/api/v1/grants/matches")
+    assert response.status_code == 401
+
+def test_get_grant_matches_success(db_session, authenticated_client):
+    # Setup test grants in DB
+    grant1 = models.Grant(
+        external_id="EE-005",
+        title="Eco Innovation Hub",
+        description="Funding circular economy software and energy systems.",
+        deadline=datetime(2026, 9, 30, 17, 0, tzinfo=timezone.utc),
+        funding_range="€100,000",
+        eligibility_criteria="European circular economy startups",
+        source_url="https://example.com/grant5",
+        sector_tags='["GreenTech", "ESG"]'
+    )
+    db_session.add(grant1)
+    db_session.commit()
+
+    # Mock search_grants of vector_service to return our grant with a score
+    with patch("app.routers.grants.vector_service.search_grants") as mock_search:
+        mock_search.return_value = [
+            {"grant_id": grant1.id, "score": 0.92, "text": grant1.description}
+        ]
+
+        response = authenticated_client.get("/api/v1/grants/matches")
+        print("RESPONSE STATUS:", response.status_code)
+        print("RESPONSE BODY:", response.json())
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["grant_id"] == grant1.id
+        assert data[0]["score"] == 0.92
+        assert data[0]["grant"]["title"] == "Eco Innovation Hub"
+        
+        # Verify query composition
+        mock_search.assert_called_once()
+
