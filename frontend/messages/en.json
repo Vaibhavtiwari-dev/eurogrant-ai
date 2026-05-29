@@ -31,14 +31,8 @@
     "submit": "Submit Documentation",
     "signOut": "Sign Out"
   },
-  "DashboardHeader": {
-    "subtitle": "Executive Intelligence Dashboard",
-    "exportReport": "Export Report",
-    "newAnalysis": "New Analysis"
-  },
+
   "Dashboard": {
-    "probabilityTitle": "Probability Indicator",
-    "probabilityDesc": "Win likelihood based on AI matching",
     "companyIntelligenceTitle": "Company Intelligence Profile",
     "viewDeepDive": "View Deep Dive"
   },

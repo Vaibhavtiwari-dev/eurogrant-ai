@@ -31,14 +31,8 @@
     "submit": "Dokumentation einreichen",
     "signOut": "Abmelden"
   },
-  "DashboardHeader": {
-    "subtitle": "Executive Intelligence Dashboard",
-    "exportReport": "Bericht exportieren",
-    "newAnalysis": "Neue Analyse"
-  },
+
   "Dashboard": {
-    "probabilityTitle": "Wahrscheinlichkeits-Indikator",
-    "probabilityDesc": "Erfolgschance basierend auf KI-Abgleich",
     "companyIntelligenceTitle": "Unternehmens-Intelligenz-Profil",
     "viewDeepDive": "Detailansicht"
   },
