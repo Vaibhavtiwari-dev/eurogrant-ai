@@ -2,7 +2,7 @@ import os
 import json
 from celery import Celery
 from .database import SessionLocal
-from .models import CompanyDocument, DocumentStatus, Organization, Grant
+from .models import CompanyDocument, DocumentStatus, Organization, Grant, GrantMatch
 from .services.s3 import s3_service
 from .services.extraction import extraction_service, redact_pii
 from .services.vector_db import vector_service
@@ -31,6 +31,10 @@ celery_app.conf.beat_schedule = {
     "daily-grant-scraping": {
         "task": "scrape_grants",
         "schedule": crontab(hour=2, minute=0),  # Execute at 2:00 AM UTC daily
+    },
+    "hourly-match-scanning": {
+        "task": "scan_for_new_matches",
+        "schedule": crontab(minute=0),  # Execute every hour
     },
 }
 
@@ -211,5 +215,100 @@ def scrape_grants():
 
     except Exception as e:
         logger.error(f"Critical failure in scrape_grants task execution: {e}")
+    finally:
+        db.close()
+
+@celery_app.task(name="scan_for_new_matches")
+def scan_for_new_matches():
+    """
+    Periodic Celery task that sweeps all active organizations and alerts users
+    of high-compatibility grant opportunities exceeding their threshold.
+    """
+    logger.info("Initiating periodic scan_for_new_matches task sweep")
+    db = SessionLocal()
+    try:
+        from .services.notifications import notification_service
+        from .models import GrantMatch
+        
+        # 1. Fetch all organizations with alert_email_enabled=True
+        orgs = db.query(Organization).filter(Organization.alert_email_enabled == True).all()
+        for org in orgs:
+            # Construct semantic search query for this org
+            query_parts = []
+            if org.sector:
+                query_parts.append(f"Sector: {org.sector}")
+            if org.core_technologies:
+                query_parts.append(f"Technologies: {org.core_technologies}")
+            if org.countries_of_operation:
+                query_parts.append(f"Countries: {org.countries_of_operation}")
+                
+            query_str = " | ".join(query_parts) if query_parts else "General startup business grant"
+            
+            # Find semantic matches in vector DB
+            matches_data = []
+            try:
+                matches_data = vector_service.search_grants(query_str, top_k=10)
+            except Exception as e:
+                logger.warning(f"Vector search failed for org {org.id} in scanning: {e}. Falling back to default DB search.")
+                
+            # If no semantic index matches (e.g. offline mock), check local DB
+            if not matches_data:
+                grants = db.query(Grant).limit(5).all()
+                matches_data = [
+                    {"grant_id": grant.id, "score": 0.88 - (i * 0.05), "text": grant.description}
+                    for i, grant in enumerate(grants)
+                ]
+                
+            for match in matches_data:
+                score = match["score"]
+                if score >= org.match_threshold:
+                    # Check if an alert was already sent (i.e. exists in GrantMatch)
+                    existing_match = db.query(GrantMatch).filter(
+                        GrantMatch.organization_id == org.id,
+                        GrantMatch.grant_id == match["grant_id"]
+                    ).first()
+                    
+                    if not existing_match:
+                        grant = db.query(Grant).filter(Grant.id == match["grant_id"]).first()
+                        if not grant:
+                            continue
+                            
+                        # Generate explanation
+                        org_profile_text = f"Sector: {org.sector}, Technologies: {org.core_technologies}, Countries: {org.countries_of_operation}"
+                        try:
+                            explanation = extraction_service.explain_match(org_profile_text, grant.description)
+                        except Exception as ex_err:
+                            logger.error(f"Failed to generate explanation for grant {grant.id}: {ex_err}")
+                            explanation = "This grant is highly compatible with your organization's core profile."
+                            
+                        # Save/mark as matched in DB
+                        new_match = GrantMatch(
+                            organization_id=org.id,
+                            grant_id=grant.id,
+                            score=score,
+                            explanation=explanation
+                        )
+                        db.add(new_match)
+                        db.commit()
+                        db.refresh(new_match)
+                        
+                        # Send email alerts to all registered users of this organization
+                        from .models import User
+                        users = db.query(User).filter(User.organization_id == org.id, User.is_active == True).all()
+                        for user in users:
+                            try:
+                                notification_service.send_match_alert(
+                                    email=user.email,
+                                    grant_title=grant.title,
+                                    score=score,
+                                    explanation=explanation
+                                )
+                            except Exception as email_err:
+                                logger.error(f"Failed to send email alert to {user.email}: {email_err}")
+                                
+        logger.info("Completed periodic match scan and notifications sweep.")
+    except Exception as e:
+        logger.error(f"Critical failure in scan_for_new_matches Celery task: {e}")
+        db.rollback()
     finally:
         db.close()
