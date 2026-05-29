@@ -58,9 +58,8 @@ class VectorService:
             )
             return response.data[0].embedding
         except Exception as e:
-            logger.warning(f"Embedding generation failed: {e}. Falling back to local offline mock zero embeddings.")
-            # Return a list of zeros matching the configured dimension
-            return [0.0] * self.dimension
+            logger.error(f"Embedding generation failed: {e}")
+            raise e
 
     def upsert_text(self, text: str, doc_id: int, org_id: int):
         chunks = self.text_splitter.split_text(text)
@@ -114,6 +113,38 @@ class VectorService:
             logger.info(f"Upserted {len(vectors)} chunks for grant {grant_id} to Pinecone namespace grants")
         except Exception as e:
             logger.error(f"Pinecone upsert failed for grant {grant_id}: {e}. Bypassed gracefully.")
+
+    def query_grants(self, query_text: str, limit: int = 10) -> List[int]:
+        # 1. Generate embedding for query
+        try:
+            embedding = self.generate_embeddings(query_text)
+        except Exception as e:
+            logger.error(f"Could not generate query embeddings: {e}")
+            return []
+        
+        if not self.index:
+            logger.warning("Pinecone index not initialized. Querying is unavailable (offline mock active)")
+            return []
+            
+        try:
+            # 2. Query Pinecone grants namespace
+            results = self.index.query(
+                vector=embedding,
+                namespace="grants",
+                top_k=limit,
+                include_metadata=True
+            )
+            # 3. Extract and standard return grant IDs from metadata
+            grant_ids = []
+            for match in results.get("matches", []):
+                metadata = match.get("metadata", {})
+                grant_id = metadata.get("grant_id")
+                if grant_id is not None:
+                    grant_ids.append(int(grant_id))
+            return grant_ids
+        except Exception as e:
+            logger.error(f"Pinecone query failed in grants namespace: {e}")
+            return []
 
 vector_service = VectorService()
 
