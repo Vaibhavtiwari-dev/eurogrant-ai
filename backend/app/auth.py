@@ -1,6 +1,6 @@
 import bcrypt
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Any
 import jwt
 from jwt.exceptions import PyJWTError as JWTError
 import os
@@ -9,11 +9,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # JWT Configuration
-SECRET_KEY = os.getenv("JWT_SECRET")
-if not SECRET_KEY:
+_SECRET_KEY = os.getenv("JWT_SECRET")
+if not _SECRET_KEY:
     raise ValueError("JWT_SECRET environment variable is not set")
+# _SECRET_KEY is confirmed non-None here; assign to a const to appease type checkers
+SECRET_KEY: str = _SECRET_KEY
 
-ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ALGORITHM = "HS256"  # Hardcoded — do not allow env override to prevent algorithm confusion attacks
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
 
 from fastapi.security import OAuth2PasswordBearer
@@ -37,7 +39,7 @@ async def get_current_user(request: Request, token: Optional[str] = Depends(oaut
 
     try:
         payload = jwt.decode(jwt_token, SECRET_KEY, algorithms=[ALGORITHM], options={"verify_exp": True})
-        email: str = payload.get("sub")
+        email: Any = payload.get("sub")
         if email is None:
             raise credentials_exception
         token_data = schemas.TokenData(email=email)
