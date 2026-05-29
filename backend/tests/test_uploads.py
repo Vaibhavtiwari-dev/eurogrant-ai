@@ -7,7 +7,7 @@ def test_list_documents(authenticated_client):
     assert isinstance(response.json(), list)
 
 def test_upload_document_success(authenticated_client, mock_s3, mock_worker):
-    file_content = b"fake pdf content"
+    file_content = b"%PDF-1.4\nfake pdf content"
     file_name = "test.pdf"
     file = (BytesIO(file_content), file_name)
     
