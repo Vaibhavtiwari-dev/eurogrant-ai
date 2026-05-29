@@ -9,6 +9,8 @@ import Header from "@/components/dashboard/Header";
 import StatsOverview from "@/components/dashboard/StatsOverview";
 import RAGProgress from "@/components/dashboard/RAGProgress";
 import HotMatches from "@/components/dashboard/HotMatches";
+import CompanyProfile from "@/components/CompanyProfile";
+import DocumentList from "@/components/DocumentList";
 import { useAuth } from "@/context/AuthContext";
 import { useDocumentPolling } from "@/hooks/useDocumentPolling";
 import { apiFetch } from "@/lib/api";
@@ -144,14 +146,23 @@ export default function DashboardPage() {
           <div className="grid grid-cols-12 gap-10">
             <div className="col-span-12 lg:col-span-8 space-y-12">
               <StatsOverview variants={itemVariants} stats={overview?.stats} />
+              
+              <motion.div variants={itemVariants} className="premium-card p-10 bg-surface/40 backdrop-blur-md rounded-2xl border border-white/5 shadow-xl">
+                <CompanyProfile refreshKey={refreshKey} />
+              </motion.div>
+              
               <motion.div variants={itemVariants}>
                 <RAGProgress pipelines={overview?.pipelines || []} />
               </motion.div>
             </div>
 
-            <div className="col-span-12 lg:col-span-4">
+            <div className="col-span-12 lg:col-span-4 space-y-12">
               <motion.div variants={itemVariants}>
                 <HotMatches matches={overview?.hot_matches || []} />
+              </motion.div>
+              
+              <motion.div variants={itemVariants} className="premium-card p-10 bg-surface/40 backdrop-blur-md rounded-2xl border border-white/5 shadow-xl">
+                <DocumentList refreshKey={refreshKey} />
               </motion.div>
             </div>
           </div>
