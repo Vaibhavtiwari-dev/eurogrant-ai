@@ -180,6 +180,23 @@ class VectorService:
             logger.error(f"Pinecone query failed in search_grants grants namespace: {e}")
             return []
 
-vector_service = VectorService()
+_vector_service: "VectorService | None" = None
+
+def get_vector_service() -> "VectorService":
+    """Lazy singleton: initialises the Pinecone client on first use, not at import time.
+
+    This prevents FastAPI boot failures when PINECONE_API_KEY is absent or invalid,
+    and avoids expensive network calls during module-load in test contexts.
+    """
+    global _vector_service
+    if _vector_service is None:
+        _vector_service = VectorService()
+    return _vector_service
+
+
+def reset_vector_service() -> None:
+    """Reset the lazy singleton. Exists solely for test isolation — do NOT call in production."""
+    global _vector_service
+    _vector_service = None
 
 
