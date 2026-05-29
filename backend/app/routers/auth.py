@@ -56,24 +56,27 @@ def register(request: Request, user_in: schemas.UserCreate, db: Session = Depend
 @limiter.limit("5/minute")
 def login(request: Request, response: Response, user_credentials: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
     user = db.query(models.User).filter(models.User.email == user_credentials.username).first()
-    
+
+    # LOW-01: constant-time bcrypt check even when user doesn't exist — prevents timing-oracle enumeration
     if not user:
+        auth.verify_password(user_credentials.password, "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4fSRF6fK.2P8IqGK")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Credentials")
-    
+
     if not auth.verify_password(user_credentials.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Credentials")
     
     access_token = auth.create_access_token(data={"sub": user.email})
 
-    # Set httpOnly cookie for secure browser-based auth
+    # Set httpOnly cookie with strict SameSite + Secure flags for CSRF protection
     is_localhost = os.getenv("ENVIRONMENT", "development") == "development"
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=not is_localhost,
-        samesite="lax",
+        secure=not is_localhost,  # True in production (requires HTTPS)
+        samesite="strict",       # Strict CSRF protection
         max_age=auth.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
     )
 
     return {"access_token": access_token, "token_type": "bearer"}  # nosec B105
@@ -81,5 +84,6 @@ def login(request: Request, response: Response, user_credentials: OAuth2Password
 
 @router.post("/logout")
 def logout(response: Response):
-    response.delete_cookie(key="access_token", httponly=True, samesite="lax")
+    is_localhost = os.getenv("ENVIRONMENT", "development") == "development"
+    response.delete_cookie(key="access_token", httponly=True, samesite="strict", path="/", secure=not is_localhost)
     return {"message": "Successfully logged out"}
