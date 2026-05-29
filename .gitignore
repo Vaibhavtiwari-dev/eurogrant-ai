@@ -49,3 +49,7 @@ commit_in_parts.ps1
 .gemini/
 mcp_request.json
 *.db
+
+# IDE and temp
+.idea/
+tmp/
