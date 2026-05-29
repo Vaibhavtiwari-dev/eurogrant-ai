@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator, Field
+from pydantic import BaseModel, EmailStr, field_validator, Field, ConfigDict
 from typing import Optional, List
 from .models import RoleEnum, ProposalStatus
 from datetime import datetime
@@ -39,8 +39,7 @@ class OrganizationOut(OrganizationBase):
     id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Dashboard Schemas
 class PipelineOut(BaseModel):
@@ -73,8 +72,7 @@ class UserOut(UserBase):
     organization_id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Document Schemas
 class DocumentOut(BaseModel):
@@ -83,5 +81,30 @@ class DocumentOut(BaseModel):
     status: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+# Grant Schemas
+class GrantBase(BaseModel):
+    external_id: str
+    title: str
+    description: str
+    deadline: datetime
+    funding_range: Optional[str] = None
+    eligibility_criteria: Optional[str] = None
+    scoring_rubric: Optional[str] = None
+    source_url: Optional[str] = None
+    sector_tags: Optional[str] = None
+
+class GrantCreate(GrantBase):
+    pass
+
+class GrantOut(GrantBase):
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+class GrantSearchRequest(BaseModel):
+    query: Optional[str] = None
+    limit: Optional[int] = 10
+    offset: Optional[int] = 0
+    sectors: Optional[List[str]] = None
