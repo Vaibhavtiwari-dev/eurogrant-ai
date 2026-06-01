@@ -75,7 +75,8 @@ export default function RegisterPage() {
                 <input
                   type="text"
                   required
-                  className="w-full bg-background border border-outline rounded-lg py-3.5 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-4 focus:ring-emerald/5 focus:border-emerald-light/50 transition-all text-sm font-medium"
+                  aria-label="Full Name"
+                  className="w-full bg-background border border-outline rounded-lg py-3.5 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-4 focus:ring-emerald/5 focus:border-emerald-light/50 focus-visible:outline-2 focus-visible:outline-emerald-light transition-all text-sm font-medium"
                   placeholder="Full Name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
@@ -89,7 +90,8 @@ export default function RegisterPage() {
                 <input
                   type="text"
                   required
-                  className="w-full bg-background border border-outline rounded-lg py-3.5 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-4 focus:ring-emerald/5 focus:border-emerald-light/50 transition-all text-sm font-medium"
+                  aria-label="Organization Name"
+                  className="w-full bg-background border border-outline rounded-lg py-3.5 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-4 focus:ring-emerald/5 focus:border-emerald-light/50 focus-visible:outline-2 focus-visible:outline-emerald-light transition-all text-sm font-medium"
                   placeholder="Organization Name"
                   value={organizationName}
                   onChange={(e) => setOrganizationName(e.target.value)}
@@ -103,13 +105,14 @@ export default function RegisterPage() {
                 <input
                   type="email"
                   required
-                  className="w-full bg-background border border-outline rounded-lg py-3.5 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-4 focus:ring-emerald/5 focus:border-emerald-light/50 transition-all text-sm font-medium"
+                  aria-label="Email"
+                  className="w-full bg-background border border-outline rounded-lg py-3.5 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-4 focus:ring-emerald/5 focus:border-emerald-light/50 focus-visible:outline-2 focus-visible:outline-emerald-light transition-all text-sm font-medium"
                   placeholder="Intelligence ID (Email)"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
-              
+
               <div className="group relative">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-40 group-focus-within:text-emerald-light group-focus-within:opacity-100 transition-all">
                   <Lock size={18} />
@@ -117,7 +120,8 @@ export default function RegisterPage() {
                 <input
                   type="password"
                   required
-                  className="w-full bg-background border border-outline rounded-lg py-3.5 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-4 focus:ring-emerald/5 focus:border-emerald-light/50 transition-all text-sm font-medium"
+                  aria-label="Password"
+                  className="w-full bg-background border border-outline rounded-lg py-3.5 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-4 focus:ring-emerald/5 focus:border-emerald-light/50 focus-visible:outline-2 focus-visible:outline-emerald-light transition-all text-sm font-medium"
                   placeholder="Security Key (Password)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -131,7 +135,8 @@ export default function RegisterPage() {
                 <input
                   type="text"
                   required
-                  className="w-full bg-background border border-outline rounded-lg py-3.5 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-4 focus:ring-emerald/5 focus:border-emerald-light/50 transition-all text-sm font-medium"
+                  aria-label="Invite Code"
+                  className="w-full bg-background border border-outline rounded-lg py-3.5 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-4 focus:ring-emerald/5 focus:border-emerald-light/50 focus-visible:outline-2 focus-visible:outline-emerald-light transition-all text-sm font-medium"
                   placeholder="Master Invite Code"
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value)}
@@ -141,7 +146,8 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              className="group relative w-full py-4 bg-copper text-white font-bold uppercase tracking-widest text-xs rounded-lg overflow-hidden transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 hover:brightness-110 shadow-lg shadow-copper/10 mt-4"
+              aria-label="Register"
+              className="group relative w-full py-4 bg-copper text-white font-bold uppercase tracking-widest text-xs rounded-lg overflow-hidden transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 hover:brightness-110 shadow-lg shadow-copper/10 focus-visible:outline-2 focus-visible:outline-copper focus-visible:outline-offset-2 mt-4"
             >
               <span>Enroll Agent</span>
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
@@ -149,7 +155,7 @@ export default function RegisterPage() {
           </form>
 
           <div className="mt-10 text-center border-t border-outline pt-8">
-            <Link href="/login" className="group inline-flex items-center gap-2 text-[10px] font-bold text-on-surface-variant hover:text-emerald-light uppercase tracking-widest transition-all">
+            <Link href="/login" className="group inline-flex items-center gap-2 text-[10px] font-bold text-on-surface-variant hover:text-emerald-light uppercase tracking-widest transition-all focus-visible:outline-2 focus-visible:outline-emerald-light rounded">
               <span>Secure Sign In</span>
               <div className="w-4 h-[1px] bg-outline opacity-40 group-hover:bg-emerald-light group-hover:w-8 group-hover:opacity-100 transition-all" />
             </Link>
