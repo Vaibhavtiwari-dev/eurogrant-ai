@@ -4,8 +4,32 @@ from datetime import datetime, timedelta
 import logging
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any
+import socket
+import ipaddress
 
 logger = logging.getLogger(__name__)
+
+def _is_safe_url(url):
+    from urllib.parse import urlparse
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+        addrinfos = socket.getaddrinfo(hostname, None)
+        for family, type_, proto, canonname, sockaddr in addrinfos:
+            ip_str = sockaddr[0]
+            try:
+                ip_obj = ipaddress.ip_address(ip_str)
+                if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_multicast or ip_obj.is_reserved:
+                    logger.warning("SSRF blocked: %s resolves to blocked IP %s", url, ip_str)
+                    return False
+            except ValueError:
+                continue
+        return True
+    except Exception as e:
+        logger.warning("SSRF validation failed for %s: %s", url, e)
+        return False
 
 class GrantScraper(ABC):
     """
@@ -32,8 +56,11 @@ class EstoniaGrantScraper(GrantScraper):
         logger.info(f"Initiating scraping sweep for Enterprise Estonia portal: {self.portal_url}")
         
         try:
+            if not _is_safe_url(self.portal_url):
+                logger.warning("SSRF validation failed for portal URL: %s. Using fallback.", self.portal_url)
+                return self._get_fallback_data()
             # We enforce a strict timeout to prevent thread blocking
-            response = httpx.get(self.portal_url, timeout=self.timeout, follow_redirects=True)
+            response = httpx.get(self.portal_url, timeout=self.timeout, follow_redirects=False)
             response.raise_for_status()
             
             # Parse HTML content via BeautifulSoup
@@ -84,6 +111,9 @@ class EstoniaGrantScraper(GrantScraper):
                             href = f"https://www.eas.ee{href}" if href.startswith("/") else self.portal_url
                     # MED-03: Ensure final URL has an allowed scheme
                     if not any(href.startswith(scheme) for scheme in ("https://", "http://")):
+                        href = self.portal_url
+                    if not _is_safe_url(href):
+                        logger.warning("SSRF blocked: skipping scraped URL %s", href)
                         href = self.portal_url
 
                 # Standardized unique identifier
