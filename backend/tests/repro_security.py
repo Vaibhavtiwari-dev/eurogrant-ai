@@ -28,13 +28,16 @@ def test_prompt_injection_sanitization():
         # ```
         
         # Let's extract the part between the document text delimiters
-        doc_part = sent_prompt.split("Document text:")[1].strip()
+        prompt_parts = sent_prompt.split("Document text:")
+        assert len(prompt_parts) > 1, "Expected 'Document text:' delimiter in prompt"
+        doc_part = prompt_parts[1].strip()
         # The doc_part should start with ``` and end with ``` (before the JSON instruction)
         # However, our injection payload had its own ``` which should have been replaced with " ".
         
         # If we split by ``` we should see our sanitized content
         # Document text: \n ``` \n [sanitized content] \n ``` \n Return a JSON...
         parts = doc_part.split("```")
+        assert len(parts) > 1, "Expected triple-backtick delimiters in prompt"
         sanitized_content = parts[1].strip()
         
         assert "```" not in sanitized_content

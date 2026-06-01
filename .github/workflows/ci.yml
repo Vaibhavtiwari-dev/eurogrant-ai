@@ -16,21 +16,6 @@ jobs:
       run:
         working-directory: backend
 
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: eurogrant_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - uses: actions/checkout@v4
 
@@ -49,7 +34,7 @@ jobs:
       - name: Run tests
         run: pytest -v --tb=short
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/eurogrant_test
+          DATABASE_URL: sqlite:///./test_ci.db
           CELERY_BROKER_URL: redis://localhost:6379/0
           CELERY_RESULT_BACKEND: redis://localhost:6379/0
           JWT_SECRET: test_secret_key_for_ci

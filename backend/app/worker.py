@@ -128,7 +128,17 @@ def extract_company_profile(text: str, org_id: int, db):
         raw_content = response.choices[0].message.content
         if raw_content is None:
             raise ValueError("LLM returned empty content")
-        profile_data = json.loads(raw_content)
+        # Defensive parsing: handle str, bytes, dict, or mock objects
+        if isinstance(raw_content, (dict, list)):
+            profile_data = raw_content
+        elif isinstance(raw_content, (bytes, bytearray)):
+            profile_data = json.loads(raw_content.decode("utf-8"))
+        elif isinstance(raw_content, str):
+            profile_data = json.loads(raw_content)
+        else:
+            raise ValueError(
+                f"LLM returned unsupported content type: {type(raw_content).__name__}"
+            )
 
         org = db.query(Organization).filter(Organization.id == org_id).first()
         if org:

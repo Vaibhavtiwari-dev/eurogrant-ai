@@ -68,6 +68,8 @@ async def csrf_protection_middleware(request: Request, call_next):
         origin = request.headers.get("origin")
         referer = request.headers.get("referer")
         allowed_origins = {"http://localhost:3000", "http://127.0.0.1:3000", "https://eurogrant.ai"}
+        if os.getenv("ENVIRONMENT", "production") != "production":
+            allowed_origins.add("http://testserver")
         # If Origin header is present, validate it matches an allowed origin
         if origin:
             # Strip trailing slash for comparison

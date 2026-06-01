@@ -74,8 +74,10 @@ def test_search_grants_vector_success(db_session, authenticated_client):
     db_session.commit()
 
     # Mock Vector Service to return the grant's ID
-    with patch("app.routers.grants.vector_service.query_grants") as mock_query:
-        mock_query.return_value = [grant1.id]
+    with patch("app.routers.grants.get_vector_service") as mock_get_vs:
+        mock_vs = MagicMock()
+        mock_get_vs.return_value = mock_vs
+        mock_vs.query_grants.return_value = [grant1.id]
 
         response = authenticated_client.post(
             "/api/v1/grants/search",
@@ -86,7 +88,7 @@ def test_search_grants_vector_success(db_session, authenticated_client):
         assert len(data) == 1
         assert data[0]["id"] == grant1.id
         assert data[0]["title"] == "DeepTech AI Innovation"
-        mock_query.assert_called_once_with("advanced intelligence models", limit=10)
+        mock_vs.query_grants.assert_called_once_with("advanced intelligence models", limit=10)
 
 def test_get_grant_by_id(db_session, authenticated_client):
     grant = models.Grant(
@@ -131,9 +133,11 @@ def test_get_grant_matches_success(db_session, authenticated_client):
     db_session.add(grant1)
     db_session.commit()
 
-    # Mock search_grants of vector_service to return our grant with a score
-    with patch("app.routers.grants.vector_service.search_grants") as mock_search:
-        mock_search.return_value = [
+    # Mock search_grants of get_vector_service to return our grant with a score
+    with patch("app.routers.grants.get_vector_service") as mock_get_vs:
+        mock_vs = MagicMock()
+        mock_get_vs.return_value = mock_vs
+        mock_vs.search_grants.return_value = [
             {"grant_id": grant1.id, "score": 0.92, "text": grant1.description}
         ]
 
@@ -148,5 +152,5 @@ def test_get_grant_matches_success(db_session, authenticated_client):
         assert data[0]["grant"]["title"] == "Eco Innovation Hub"
         
         # Verify query composition
-        mock_search.assert_called_once()
+        mock_vs.search_grants.assert_called_once()
 
