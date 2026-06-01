@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { motion } from "framer-motion";
+import { containerVariants, itemVariants } from "@/lib/animations";
 import { 
   ArrowRight, 
   CheckCircle2, 
@@ -20,26 +21,6 @@ import { useState } from "react";
 export default function LandingPage() {
   const t = useTranslations("Landing");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: { duration: 0.5, ease: "easeOut" as const }
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background text-on-background selection:bg-emerald/10 font-inter">
