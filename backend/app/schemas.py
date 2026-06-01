@@ -1,3 +1,4 @@
+import re
 from pydantic import BaseModel, EmailStr, field_validator, Field, ConfigDict
 from typing import Optional, List
 from .models import RoleEnum, ProposalStatus
@@ -12,6 +13,19 @@ class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
     organization_name: str # First user creates the org
     invite_code: str
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_complexity(cls, v):
+        if not re.search(r'[A-Z]', v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r'[a-z]', v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not re.search(r'[0-9]', v):
+            raise ValueError("Password must contain at least one digit")
+        if not re.search(r'[!@#$%^&*()_+\-=\[\]{}|;:\'",./<>?]', v):
+            raise ValueError("Password must contain at least one special character")
+        return v
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -134,3 +148,20 @@ class GrantSearchRequest(BaseModel):
     limit: Optional[int] = 10
     offset: Optional[int] = 0
     sectors: Optional[List[str]] = None
+
+
+# Proposal Schemas
+class ProposalCreate(BaseModel):
+    grant_id: int
+
+class ProposalOut(BaseModel):
+    id: int
+    organization_id: int
+    grant_id: int
+    status: ProposalStatus
+    content: Optional[str] = None
+    compatibility_score: Optional[float] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
