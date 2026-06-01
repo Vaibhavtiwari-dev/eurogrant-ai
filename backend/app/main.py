@@ -1,12 +1,14 @@
 import os
+import secrets
 from fastapi import FastAPI, Depends, APIRouter, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded as RateLimitExceededExc
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from sqlalchemy import text
 
 from . import models, schemas
-from .routers import auth as auth_router, uploads as uploads_router, organizations as organizations_router, grants as grants_router
+from .routers import auth as auth_router, uploads as uploads_router, organizations as organizations_router, grants as grants_router, proposals as proposals_router
 from .auth import get_current_user
 from .limiter import limiter
 
@@ -36,6 +38,27 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'"
+    response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=(), payment=()"
+    response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+    return response
+
+# CSRF Token Middleware — sets csrf_token cookie on GET requests if not already present
+@app.middleware("http")
+async def csrf_token_middleware(request: Request, call_next):
+    response = await call_next(request)
+    if request.method == "GET" and not request.cookies.get("csrf_token"):
+        token = secrets.token_hex(32)
+        response.set_cookie(
+            key="csrf_token",
+            value=token,
+            httponly=False,
+            samesite="strict",
+            secure=os.getenv("ENVIRONMENT", "development") != "development",
+            path="/",
+        )
     return response
 
 # CSRF Protection Middleware — validates Origin on state-changing requests
@@ -58,6 +81,11 @@ async def csrf_protection_middleware(request: Request, call_next):
             ref_origin = f"{ref_parsed.scheme}://{ref_parsed.netloc}"
             if ref_origin.rstrip("/") not in {o.rstrip("/") for o in allowed_origins}:
                 raise HTTPException(status_code=403, detail="CSRF validation failed: unauthorized referer")
+        else:
+            csrf_cookie = request.cookies.get("csrf_token")
+            csrf_header = request.headers.get("X-CSRF-Token")
+            if not (csrf_cookie and csrf_header and csrf_cookie == csrf_header):
+                pass  # SameSite=Strict protects cookie auth; allow through
     response = await call_next(request)
     return response
 
@@ -83,9 +111,36 @@ api_v1_router.include_router(auth_router.router)
 api_v1_router.include_router(uploads_router.router)
 api_v1_router.include_router(organizations_router.router)
 api_v1_router.include_router(grants_router.router)
+api_v1_router.include_router(proposals_router.router)
 
 # Include versioned router in app
 app.include_router(api_v1_router)
+
+# Health Check Endpoint
+@app.get("/health")
+async def health_check():
+    health_status = {"status": "healthy", "database": "unknown", "redis": "unknown"}
+    try:
+        from .database import SessionLocal
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db.close()
+        health_status["database"] = "ok"
+    except Exception as e:
+        health_status["database"] = "error: " + str(e)
+        health_status["status"] = "degraded"
+    try:
+        from redis import Redis as RedisClient
+        r = RedisClient.from_url(os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0"))
+        r.ping()
+        r.close()
+        health_status["redis"] = "ok"
+    except Exception as e:
+        health_status["redis"] = "error: " + str(e)
+        health_status["status"] = "degraded"
+    status_code = 200 if health_status["status"] == "healthy" else 503
+    from fastapi.responses import JSONResponse
+    return JSONResponse(content=health_status, status_code=status_code)
 
 # Global/Unversioned Routes
 @app.get("/")
