@@ -2,6 +2,7 @@ import boto3
 import os
 from botocore.exceptions import ClientError
 import logging
+import html
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +35,10 @@ class NotificationService:
         Integrates with AWS SES or falls back gracefully to logging in offline mode.
         """
         display_score = int(score * 100) if score <= 1.0 else int(score)
-        
-        subject = f"🔥 New High-Compatibility Grant Match: {grant_title} ({display_score}% Match)"
+        safe_title = html.escape(grant_title)
+        safe_explanation = html.escape(explanation)
+
+        subject = f"🔥 New High-Compatibility Grant Match: {safe_title} ({display_score}% Match)"
         
         dashboard_url = os.getenv("APP_BASE_URL", "https://eurogrant.ai")
 
@@ -145,7 +148,7 @@ class NotificationService:
                     <span class="logo">EuroGrant <span class="logo-highlight">AI</span></span>
                 </div>
                 <div class="content">
-                    <h2 class="title">Match Alert: {grant_title}</h2>
+                    <h2 class="title">Match Alert: {safe_title}</h2>
                     
                     <div class="metric-bar">
                         <span style="font-weight: bold; font-size: 13px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em;">Match Probability</span>
@@ -154,7 +157,7 @@ class NotificationService:
                     
                     <div class="verdict-box">
                         <strong>AI Synergy Verdict:</strong><br/>
-                        "{explanation}"
+                        "{safe_explanation}"
                     </div>
                     
                     <a href="{dashboard_url}/dashboard" class="action-button">Access Workspace & Draft Proposal</a>
@@ -174,7 +177,7 @@ class NotificationService:
             logger.info(f"TO: {email}")
             logger.info(f"FROM: {self.sender_email}")
             logger.info(f"SUBJECT: {subject}")
-            logger.info(f"AI EXPLANATION: {explanation}")
+            logger.info(f"AI EXPLANATION: {safe_explanation}")
             logger.info("-------------------------------------------------------------------")
             return True
             
