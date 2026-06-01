@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
+import { containerVariants, itemVariants } from "@/lib/animations";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Header from "@/components/dashboard/Header";
 import { useAuth } from "@/context/AuthContext";
@@ -23,19 +24,6 @@ const GrantSchema = z.object({
 
 const GrantListSchema = z.array(GrantSchema);
 type Grant = z.infer<typeof GrantSchema>;
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.08, delayChildren: 0.1 }
-  }
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 15 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } }
-};
 
 export default function GrantSearchPage() {
   const { user, loading, logout } = useAuth();
