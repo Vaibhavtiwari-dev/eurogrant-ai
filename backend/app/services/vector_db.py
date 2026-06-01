@@ -9,17 +9,35 @@ logger = logging.getLogger(__name__)
 
 class VectorService:
     def __init__(self):
-        self.pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-        # Initialize OpenAI client with optional base_url for NVIDIA NIM support
+        api_key = os.getenv("PINECONE_API_KEY")
+        if not api_key:
+            logger.warning("PINECONE_API_KEY not set — running without vector store")
+            self.pc = None
+            self.index = None
+        else:
+            self.pc = Pinecone(api_key=api_key)
+            self.index_name = os.getenv("PINECONE_INDEX_NAME", "eurogrant")
+            self.dimension = int(os.getenv("EMBEDDING_DIMENSION", "1536"))
+
         self.openai_client = OpenAI(
             api_key=os.getenv("OPENAI_API_KEY"),
             base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
         )
-        self.index_name = os.getenv("PINECONE_INDEX_NAME", "eurogrant")
-        self.dimension = int(os.getenv("EMBEDDING_DIMENSION", "1536"))
         self.embedding_model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
         
-        # Ensure index exists
+        # If Pinecone was configured, ensure the index exists and connect
+        if self.pc is not None:
+            self._ensure_index_and_connect()
+        elif not hasattr(self, "index"):
+            self.index = None
+
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=100
+        )
+
+    def _ensure_index_and_connect(self):
+        """Ensure the Pinecone index exists and initialise the connection."""
         try:
             active_indexes = [idx.name for idx in self.pc.list_indexes()]
             if self.index_name not in active_indexes:
@@ -33,22 +51,16 @@ class VectorService:
                     )
                 )
                 logger.info(f"Created new Pinecone index: {self.index_name}. Waiting for readiness...")
-                # Allow a few seconds for initialization
                 import time
                 time.sleep(5)
         except Exception as e:
             logger.warning(f"Could not check or create Pinecone index: {e}")
 
-        # Initialize the index connection
         try:
             self.index = self.pc.Index(self.index_name)
         except Exception as e:
             logger.error(f"Failed to connect to Pinecone index: {e}")
             self.index = None
-        self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=100
-        )
 
     def generate_embeddings(self, text: str) -> List[float]:
         try:

@@ -27,6 +27,12 @@ def create_test_db():
     if os.path.exists(TEST_DB_FILE):
         os.remove(TEST_DB_FILE)
     Base.metadata.create_all(bind=engine)
+    # Also create tables on the app's database engine — Celery worker tasks
+    # use SessionLocal() directly (bypassing conftest's override of get_db)
+    # and in CI this hits a separate SQLite file.
+    from app.database import engine as app_engine
+    if "sqlite" in str(app_engine.url):
+        Base.metadata.create_all(bind=app_engine)
     yield
     # On Windows, we might have file locks, so we don't remove here.
     # It will be removed at the start of the next run if it exists.
