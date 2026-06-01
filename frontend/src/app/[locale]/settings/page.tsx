@@ -2,24 +2,12 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
+import { containerVariants, itemVariants } from "@/lib/animations";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Header from "@/components/dashboard/Header";
 import { useAuth } from "@/context/AuthContext";
 import { Settings, User, Shield, AlertTriangle, Loader2, Save, CheckCircle2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1, delayChildren: 0.2 }
-  }
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" as const } }
-};
 
 export default function SettingsPage() {
   const { user, loading, logout } = useAuth();
