@@ -180,6 +180,46 @@ class VectorService:
             logger.error(f"Pinecone query failed in search_grants grants namespace: {e}")
             return []
 
+    def query_namespace(self, query_text: str, namespace: str, top_k: int = 5) -> List[str]:
+        """Retrieve relevant text chunks from a specific Pinecone namespace for RAG.
+
+        Args:
+            query_text: The natural-language query to embed and search with.
+            namespace: The Pinecone namespace to search within (e.g. ``org_5``).
+            top_k: Maximum number of chunks to return.
+
+        Returns:
+            A list of text strings from the top-k matching chunks, or an empty
+            list if the index is unavailable or the query fails.
+        """
+        try:
+            embedding = self.generate_embeddings(query_text)
+        except Exception as e:
+            logger.error(f"Could not generate query embeddings for namespace {namespace}: {e}")
+            return []
+
+        if not self.index:
+            logger.warning("Pinecone index not initialised. query_namespace unavailable (offline mock active).")
+            return []
+
+        try:
+            results = self.index.query(
+                vector=embedding,
+                namespace=namespace,
+                top_k=top_k,
+                include_metadata=True,
+            )
+            texts = []
+            for match in results.get("matches", []):
+                metadata = match.get("metadata", {})
+                text = metadata.get("text")
+                if text:
+                    texts.append(text)
+            return texts
+        except Exception as e:
+            logger.error(f"Pinecone query failed in namespace {namespace}: {e}")
+            return []
+
 _vector_service: "VectorService | None" = None
 
 def get_vector_service() -> "VectorService":
