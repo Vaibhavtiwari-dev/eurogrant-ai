@@ -74,9 +74,7 @@ class TestLoginNoJwtInBody:
         from fastapi.testclient import TestClient
         from app.main import app
         from app import models
-        from passlib.context import CryptContext
-
-        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        from app.auth import get_password_hash
 
         # Create a real org and user so login succeeds
         org = models.Organization(name="Login Test Org", subscription_tier="growth")
@@ -85,7 +83,7 @@ class TestLoginNoJwtInBody:
 
         user = models.User(
             email="logintest@example.com",
-            hashed_password=pwd_context.hash("TestPass123!"),
+            hashed_password=get_password_hash("TestPass123!"),
             full_name="Login Test User",
             role=models.RoleEnum.ADMIN,
             organization_id=org.id,
