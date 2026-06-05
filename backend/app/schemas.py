@@ -32,8 +32,9 @@ class UserLogin(BaseModel):
     password: str
 
 class Token(BaseModel):
-    access_token: str
+    access_token: Optional[str] = None  # JWT delivered exclusively via httpOnly cookie
     token_type: str
+    message: Optional[str] = None
 
 class TokenData(BaseModel):
     email: Optional[str] = None

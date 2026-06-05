@@ -53,7 +53,7 @@ def register(request: Request, user_in: schemas.UserCreate, db: Session = Depend
     db.refresh(new_user)
     return new_user
 
-@router.post("/login", response_model=schemas.Token)
+@router.post("/login", response_model=schemas.Token, response_model_exclude_none=True)
 @limiter.limit("5/minute")
 def login(request: Request, response: Response, user_credentials: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
     user = db.query(models.User).filter(models.User.email == user_credentials.username).first()

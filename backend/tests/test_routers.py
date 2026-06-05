@@ -27,7 +27,7 @@ def test_auth_register_success(db_session):
     unique_id = str(uuid.uuid4())[:8]
     payload = {
         "email": f"new_{unique_id}@example.com",
-        "password": "password123",
+        "password": "StrongP@ss1",
         "full_name": "New User",
         "organization_name": f"New Org {unique_id}",
         "invite_code": "testcode"
@@ -45,7 +45,7 @@ def test_auth_register_duplicate_email(db_session):
     email = f"dup_{unique_id}@example.com"
     payload = {
         "email": email,
-        "password": "password123",
+        "password": "StrongP@ss1",
         "full_name": "User 1",
         "organization_name": f"Org {unique_id}",
         "invite_code": "testcode"
@@ -62,7 +62,7 @@ def test_auth_register_duplicate_email(db_session):
 def test_auth_login_success(db_session):
     unique_id = str(uuid.uuid4())[:8]
     email = f"user_{unique_id}@example.com"
-    password = "password123"
+    password = "StrongP@ss1"
     
     # Register first
     os.environ["MASTER_INVITE_CODE"] = "testcode"
@@ -76,10 +76,11 @@ def test_auth_login_success(db_session):
     
     # Now login
     response = client.post("/api/v1/auth/login", data={"username": email, "password": password})
-    assert response.status_code == 200
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.json()}"
     data = response.json()
-    assert "access_token" in data
-    assert data["token_type"] == "bearer"
+    # JWT is delivered exclusively via httpOnly cookie (security) — not in response body
+    assert "access_token" not in data, "JWT must not appear in response body"
+    assert data.get("message") == "Authentication successful"
 
 def test_organizations_me_unauthorized():
     client.cookies.clear()

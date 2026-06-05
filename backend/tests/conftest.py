@@ -2,6 +2,11 @@ import pytest
 import os
 os.environ["ENVIRONMENT"] = "development"
 
+# Must set DATABASE_URL before any app import so that the worker's SessionLocal
+# (from app.database) connects to the same SQLite file as the test session.
+TEST_DB_FILE = "test_worker.db"
+os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB_FILE}"
+
 import uuid
 from unittest.mock import MagicMock, AsyncMock
 from sqlalchemy import create_engine
@@ -11,11 +16,9 @@ from app.main import app
 from app.auth import get_current_user
 from app import models
 
-# Use a file-based SQLite for tests on Windows to avoid in-memory issues with multiple connections
-TEST_DB_FILE = "test_worker.db"
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{TEST_DB_FILE}"
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, 
+    SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False}
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

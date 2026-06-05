@@ -69,18 +69,36 @@ class TestPasswordComplexity:
 class TestLoginNoJwtInBody:
     """Tests that login endpoint does not return JWT in response body."""
 
-    def test_login_response_no_token(self, authenticated_client):
+    def test_login_response_no_token(self, db_session):
         """Verify the login success response does not contain access_token field."""
         from fastapi.testclient import TestClient
         from app.main import app
+        from app import models
+        from passlib.context import CryptContext
+
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+        # Create a real org and user so login succeeds
+        org = models.Organization(name="Login Test Org", subscription_tier="growth")
+        db_session.add(org)
+        db_session.commit()
+
+        user = models.User(
+            email="logintest@example.com",
+            hashed_password=pwd_context.hash("TestPass123!"),
+            full_name="Login Test User",
+            role=models.RoleEnum.ADMIN,
+            organization_id=org.id,
+        )
+        db_session.add(user)
+        db_session.commit()
+
         client = TestClient(app)
-        # Login requires form-encoded data via OAuth2PasswordRequestForm
         response = client.post(
             "/api/v1/auth/login",
-            data={"username": "test@example.com", "password": "testpass"},
+            data={"username": "logintest@example.com", "password": "TestPass123!"},
         )
-        # The test bypasses real auth via dependency override,
-        # so we check the response shape is correct
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.json()}"
         body = response.json()
         assert "access_token" not in body, "JWT must not appear in response body"
         assert body.get("message") == "Authentication successful"

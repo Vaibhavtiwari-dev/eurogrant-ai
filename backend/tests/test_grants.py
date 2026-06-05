@@ -133,8 +133,8 @@ def test_get_grant_matches_success(db_session, authenticated_client):
     db_session.add(grant1)
     db_session.commit()
 
-    # Mock search_grants of get_vector_service to return our grant with a score
-    with patch("app.routers.grants.get_vector_service") as mock_get_vs:
+    # Mock search_grants of get_vector_service used by GrantMatchingService
+    with patch("app.services.matching.get_vector_service") as mock_get_vs:
         mock_vs = MagicMock()
         mock_get_vs.return_value = mock_vs
         mock_vs.search_grants.return_value = [

@@ -20,8 +20,11 @@ def test_extract_text_unsupported():
     assert text == ""
 
 def test_vector_service_upsert_grant():
-    from app.services.vector_db import vector_service
     from unittest.mock import MagicMock, patch
+
+    # Patch OpenAI before the lazy singleton is created (CI has no OPENAI_API_KEY)
+    with patch("app.services.vector_db.OpenAI"):
+        from app.services.vector_db import vector_service
 
     # Mock index
     mock_index = MagicMock()
@@ -59,26 +62,36 @@ class TestHtmlEscaping:
 
     def test_send_match_alert_escapes_html_in_title(self):
         from app.services.notifications import notification_service
-        # The service should escape HTML in grant titles
-        malicious_title = '<script>alert("xss")</script>'
-        result = notification_service.send_match_alert(
-            email="test@example.com",
-            grant_title=malicious_title,
-            score=0.95,
-            explanation="Safe explanation"
-        )
-        assert result is True, "Email should be sent successfully in offline mode"
+        # Force offline mode in case CI has real AWS creds (no SES access)
+        was_offline = notification_service.is_offline
+        notification_service.is_offline = True
+        try:
+            malicious_title = '<script>alert("xss")</script>'
+            result = notification_service.send_match_alert(
+                email="test@example.com",
+                grant_title=malicious_title,
+                score=0.95,
+                explanation="Safe explanation"
+            )
+            assert result is True, "Email should be sent successfully in offline mode"
+        finally:
+            notification_service.is_offline = was_offline
 
     def test_send_match_alert_escapes_html_in_explanation(self):
         from app.services.notifications import notification_service
-        malicious_explanation = '<img src=x onerror=alert(1)>'
-        result = notification_service.send_match_alert(
-            email="test@example.com",
-            grant_title="Safe Title",
-            score=0.85,
-            explanation=malicious_explanation
-        )
-        assert result is True
+        was_offline = notification_service.is_offline
+        notification_service.is_offline = True
+        try:
+            malicious_explanation = '<img src=x onerror=alert(1)>'
+            result = notification_service.send_match_alert(
+                email="test@example.com",
+                grant_title="Safe Title",
+                score=0.85,
+                explanation=malicious_explanation
+            )
+            assert result is True
+        finally:
+            notification_service.is_offline = was_offline
 
 
 class TestSsrfProtection:

@@ -11,6 +11,7 @@ from . import models, schemas
 from .routers import auth as auth_router, uploads as uploads_router, organizations as organizations_router, grants as grants_router, proposals as proposals_router
 from .auth import get_current_user
 from .limiter import limiter
+from fastapi.responses import JSONResponse
 
 app = FastAPI(title="EuroGrant AI API")
 app.state.limiter = limiter
@@ -74,7 +75,7 @@ async def csrf_protection_middleware(request: Request, call_next):
         if origin:
             # Strip trailing slash for comparison
             if origin.rstrip("/") not in {o.rstrip("/") for o in allowed_origins}:
-                raise HTTPException(status_code=403, detail="CSRF validation failed: unauthorized origin")
+                return JSONResponse(status_code=403, content={"detail": "CSRF validation failed: unauthorized origin"})
         # If no Origin but Referer is present, validate it too (defence-in-depth)
         elif referer:
             # Extract scheme+host from referer and compare
@@ -82,7 +83,7 @@ async def csrf_protection_middleware(request: Request, call_next):
             ref_parsed = urlparse(referer)
             ref_origin = f"{ref_parsed.scheme}://{ref_parsed.netloc}"
             if ref_origin.rstrip("/") not in {o.rstrip("/") for o in allowed_origins}:
-                raise HTTPException(status_code=403, detail="CSRF validation failed: unauthorized referer")
+                return JSONResponse(status_code=403, content={"detail": "CSRF validation failed: unauthorized referer"})
         else:
             csrf_cookie = request.cookies.get("csrf_token")
             csrf_header = request.headers.get("X-CSRF-Token")
