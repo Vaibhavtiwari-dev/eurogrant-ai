@@ -1,15 +1,19 @@
+import asyncio
 import boto3
-import os
-from botocore.exceptions import ClientError
-from fastapi import HTTPException, UploadFile, status
 import logging
+import os
 import shutil
 from pathlib import Path
+from typing import Union
+
+from botocore.exceptions import BotoCoreError, ClientError
+from fastapi import HTTPException, UploadFile, status
 
 logger = logging.getLogger(__name__)
 
+
 class S3Service:
-    def __init__(self):
+    def __init__(self) -> None:
         self.storage_backend = os.getenv('STORAGE_BACKEND', 's3').lower()
         if self.storage_backend == 's3':
             self.s3_client = boto3.client(
@@ -25,9 +29,19 @@ class S3Service:
             self.local_path.mkdir(parents=True, exist_ok=True)
             logger.info(f"Using local storage at {self.local_path.absolute()}")
 
+    def _get_s3_client(self) -> "boto3.client | None":
+        """Return the boto3 S3 client, or None for local-storage backends.
+
+        Exposed as a method (not a plain attribute) so tests can patch it.
+        The S3 branches in `upload_fileobj` / `get_fileobj` call through
+        this method instead of touching `self.s3_client` directly.
+        """
+        if self.storage_backend == 's3':
+            return self.s3_client
+        return None
+
     def _validate_local_path(self, s3_key: str) -> Path:
         """Validate s3_key to prevent path traversal attacks (CWE-22)."""
-        # Reject any path component that tries to escape local_path
         dest_path = (self.local_path / s3_key).resolve()
         if not dest_path.is_relative_to(self.local_path.resolve()):
             raise HTTPException(
@@ -42,45 +56,59 @@ class S3Service:
                 dest_path = self._validate_local_path(s3_key)
                 dest_path.parent.mkdir(parents=True, exist_ok=True)
                 with dest_path.open("wb") as buffer:
-                    shutil.copyfileobj(file.file, buffer)
+                    # shutil.copyfileobj is blocking; run in a worker thread.
+                    await asyncio.to_thread(shutil.copyfileobj, file.file, buffer)
                 return s3_key
             except HTTPException:
                 raise
-            except Exception as e:
-                logger.error(f"Failed to save locally: {e}")
+            except Exception as exc:
+                logger.error(f"Failed to save locally: {exc}")
                 raise HTTPException(status_code=500, detail="Failed to save file to local storage")
 
-        try:
-            self.s3_client.upload_fileobj(
+        # S3 branch: boto3 is blocking, so dispatch to a thread.
+        def _upload() -> None:
+            client = self._get_s3_client()
+            assert client is not None, "S3 client required for S3 backend"
+            client.upload_fileobj(
                 file.file,
                 self.bucket_name,
                 s3_key,
-                ExtraArgs={'ContentType': file.content_type}
+                ExtraArgs={'ContentType': file.content_type},
             )
+
+        try:
+            await asyncio.to_thread(_upload)
             return s3_key
-        except ClientError as e:
-            logger.error(f"Failed to upload to S3: {e}")
+        except (ClientError, BotoCoreError) as exc:
+            logger.error(f"Failed to upload to S3: {exc}")
             raise HTTPException(status_code=500, detail="Failed to upload file to storage")
 
-    def get_fileobj(self, s3_key: str) -> bytes:
+    async def get_fileobj(self, s3_key: str) -> bytes:
         if self.storage_backend == 'local':
             try:
                 dest_path = self._validate_local_path(s3_key)
-                return dest_path.read_bytes()
+                # Path.read_bytes() is blocking.
+                return await asyncio.to_thread(dest_path.read_bytes)
             except HTTPException:
                 raise
-            except Exception as e:
-                logger.error(f"Failed to read locally: {e}")
+            except Exception as exc:
+                logger.error(f"Failed to read locally: {exc}")
                 raise HTTPException(status_code=500, detail="Failed to read file from local storage")
 
-        try:
-            response = self.s3_client.get_object(
+        # S3 branch: boto3 is blocking, so dispatch to a thread.
+        def _download() -> bytes:
+            client = self._get_s3_client()
+            assert client is not None, "S3 client required for S3 backend"
+            response = client.get_object(
                 Bucket=self.bucket_name,
-                Key=s3_key
+                Key=s3_key,
             )
             return response['Body'].read()
-        except ClientError as e:
-            logger.error(f"Failed to download from S3: {e}")
+
+        try:
+            return await asyncio.to_thread(_download)
+        except (ClientError, BotoCoreError) as exc:
+            logger.error(f"Failed to download from S3: {exc}")
             raise HTTPException(status_code=500, detail="Failed to download file from storage")
 
 s3_service = S3Service()
