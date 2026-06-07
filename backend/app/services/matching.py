@@ -128,8 +128,13 @@ class GrantMatchingService:
         """
         try:
             return get_vector_service().search_grants(query_str, top_k=10)
-        except Exception:
-            logger.warning("Vector search failed; falling back to SQL listing.")
+        except Exception as exc:
+            # Capture the exception with full context (traceback + org_id
+            # requires the caller; we log query length as a stable proxy).
+            logger.exception(
+                "matching: vector search failed (query_len=%d); falling back to SQL",
+                len(query_str),
+            )
             return []
 
     def _build_results_from_matches(
@@ -300,10 +305,9 @@ class GrantMatchingService:
                 org_profile_text, grant.description
             )
         except Exception as ex_err:
-            logger.error(
-                "Failed to generate explanation for grant %s: %s",
+            logger.exception(
+                "matching: explanation generation failed for grant %s",
                 grant_id,
-                ex_err,
             )
             return (
                 "This grant is highly compatible with your "
