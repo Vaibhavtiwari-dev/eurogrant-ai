@@ -21,7 +21,8 @@ config = context.config
 
 # Load environment variables
 load_dotenv()
-config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL", "postgresql://postgres:postgres@db:5432/eurogrant"))
+# Fail fast: never silently fall back to a default DB URL.
+config.set_main_option("sqlalchemy.url", os.environ["DATABASE_URL"])
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
