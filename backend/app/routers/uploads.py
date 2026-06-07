@@ -76,8 +76,8 @@ async def upload_company_document(
     request: Request,
     file: UploadFile = File(...),
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(require_role([models.RoleEnum.ADMIN, models.RoleEnum.WRITER]))
-):
+    current_user: models.User = Depends(require_role([models.RoleEnum.ADMIN, models.RoleEnum.WRITER])),
+) -> models.CompanyDocument:
     # SEC-3: Validate file size
     file.file.seek(0, 2)
     size = file.file.tell()

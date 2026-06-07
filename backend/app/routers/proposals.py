@@ -52,7 +52,7 @@ def create_proposal(
     payload: schemas.ProposalCreate,
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(get_current_user),
-):
+) -> models.Proposal:
     """Trigger a new proposal generation for a grant.
 
     Validates the organisation's subscription usage limit (FR-21) before
@@ -113,7 +113,7 @@ def create_proposal(
 def list_proposals(
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(get_current_user),
-):
+) -> List[models.Proposal]:
     """List all proposals belonging to the current user's organisation."""
     proposals = (
         db.query(models.Proposal)
@@ -129,7 +129,7 @@ def get_proposal(
     proposal_id: int,
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(get_current_user),
-):
+) -> models.Proposal:
     """Retrieve a single proposal by its ID (organisation-scoped)."""
     proposal = (
         db.query(models.Proposal)

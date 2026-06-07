@@ -10,7 +10,11 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
-def register(request: Request, user_in: schemas.UserCreate, db: Session = Depends(database.get_db)):
+def register(
+    request: Request,
+    user_in: schemas.UserCreate,
+    db: Session = Depends(database.get_db),
+) -> models.User:
     # Validate invite code - Mandatory environment variable check
     master_invite_code = os.getenv("MASTER_INVITE_CODE")
     if not master_invite_code:
@@ -55,7 +59,12 @@ def register(request: Request, user_in: schemas.UserCreate, db: Session = Depend
 
 @router.post("/login", response_model=schemas.Token, response_model_exclude_none=True)
 @limiter.limit("5/minute")
-def login(request: Request, response: Response, user_credentials: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
+def login(
+    request: Request,
+    response: Response,
+    user_credentials: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(database.get_db),
+) -> dict:
     user = db.query(models.User).filter(models.User.email == user_credentials.username).first()
 
     # Check account lockout before proceeding
@@ -92,7 +101,7 @@ def login(request: Request, response: Response, user_credentials: OAuth2Password
 
 
 @router.post("/logout")
-def logout(response: Response):
+def logout(response: Response) -> dict:
     is_localhost = os.getenv("ENVIRONMENT", "development") == "development"
     response.delete_cookie(key="access_token", httponly=True, samesite="strict", path="/", secure=not is_localhost)
     return {"message": "Successfully logged out"}

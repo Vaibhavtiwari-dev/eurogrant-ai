@@ -12,8 +12,8 @@ router = APIRouter(
 @router.get("/me", response_model=schemas.OrganizationOut)
 async def get_my_organization(
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_user)
-):
+    current_user: models.User = Depends(get_current_user),
+) -> models.Organization:
     org = db.query(models.Organization).filter(models.Organization.id == current_user.organization_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -22,8 +22,8 @@ async def get_my_organization(
 @router.get("/dashboard-overview", response_model=schemas.DashboardOverviewOut)
 async def get_dashboard_overview(
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_user)
-):
+    current_user: models.User = Depends(get_current_user),
+) -> schemas.DashboardOverviewOut:
     # Fetch real data where possible, use placeholders for missing features
     
     # 1. Stats
@@ -69,8 +69,8 @@ async def get_dashboard_overview(
 async def update_my_organization(
     org_update: schemas.OrganizationUpdate,
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_user)
-):
+    current_user: models.User = Depends(get_current_user),
+) -> models.Organization:
     org = db.query(models.Organization).filter(models.Organization.id == current_user.organization_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
