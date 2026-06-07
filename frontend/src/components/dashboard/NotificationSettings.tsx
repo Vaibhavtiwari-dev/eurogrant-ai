@@ -78,7 +78,7 @@ export default function NotificationSettings() {
     return (
       <div className="flex flex-col items-center justify-center p-20 min-h-[300px]">
         <Loader2 className="h-8 w-8 text-emerald-light animate-spin mb-4" />
-        <p className="text-slate-400 text-xs uppercase tracking-widest font-bold">Retrieving Security Profile...</p>
+        <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">Retrieving Security Profile...</p>
       </div>
     );
   }
@@ -100,7 +100,7 @@ export default function NotificationSettings() {
         <div className="flex items-center justify-between gap-6 pb-8 border-b border-white/5 relative z-10">
           <div className="space-y-1">
             <h3 className="text-base font-bold text-white">Automated Email Alerts</h3>
-            <p className="text-xs text-slate-400 leading-relaxed max-w-md">Receive high-priority notifications immediately when a new grant is indexed with an compatibility score higher than your threshold.</p>
+            <p className="text-xs text-on-surface-variant leading-relaxed max-w-md">Receive high-priority notifications immediately when a new grant is indexed with an compatibility score higher than your threshold.</p>
           </div>
           <button
             type="button"
@@ -128,11 +128,11 @@ export default function NotificationSettings() {
                 <Sliders size={18} className="text-emerald-light" />
                 <span>Cosine Similarity Threshold</span>
               </h3>
-              <p className="text-xs text-slate-400 leading-relaxed max-w-md font-medium">Controls the strictness of semantic matching. Lowering the threshold returns more generalized matches, while raising it returns only elite fits.</p>
+              <p className="text-xs text-on-surface-variant leading-relaxed max-w-md font-medium">Controls the strictness of semantic matching. Lowering the threshold returns more generalized matches, while raising it returns only elite fits.</p>
             </div>
             <div className="text-right">
               <span className="text-2xl font-black text-gold tracking-tight">{Math.round(threshold * 100)}%</span>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Min Compatibility</p>
+              <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider mt-0.5">Min Compatibility</p>
             </div>
           </div>
 
@@ -146,7 +146,7 @@ export default function NotificationSettings() {
               onChange={(e) => setThreshold(parseFloat(e.target.value))}
               className="w-full h-2 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-emerald-light border border-white/5"
             />
-            <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+            <div className="flex justify-between text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
               <span>0.50 (Inclusive)</span>
               <span>0.75 (Recommended)</span>
               <span>1.00 (Perfect Match)</span>
@@ -159,7 +159,7 @@ export default function NotificationSettings() {
           <ShieldCheck className="text-emerald-light shrink-0 mt-0.5" size={16} />
           <div>
             <h4 className="text-xs font-bold text-white">Autonomous Policy Safeguard</h4>
-            <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">Changes to email notification parameters are locked to your organization namespace. No metrics are shared externally or exposed to public indexers.</p>
+            <p className="text-[11px] text-on-surface-variant mt-1 leading-relaxed">Changes to email notification parameters are locked to your organization namespace. No metrics are shared externally or exposed to public indexers.</p>
           </div>
         </div>
 
