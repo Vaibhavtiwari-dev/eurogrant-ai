@@ -1,13 +1,31 @@
-FROM node:20-bookworm-slim
+# syntax=docker/dockerfile:1.6
 
-WORKDIR /home/node/app
+# ---------- deps ----------
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm ci
 
-COPY package*.json ./
-RUN npm install
+# ---------- builder ----------
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
 
-COPY --chown=node:node . .
+# ---------- runner ----------
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
-EXPOSE 3000
+# Next.js standalone output (configured in next.config.ts).
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+COPY --from=builder --chown=node:node /app/public ./public
 
 USER node
-CMD ["npm", "run", "dev"]
+EXPOSE 3000
+ENV PORT=3000
+CMD ["node", "server.js"]
