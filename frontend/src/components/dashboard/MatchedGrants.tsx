@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Calendar, Award, ExternalLink, ArrowRight, Loader2, RefreshCw, AlertCircle } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { z } from "zod";
+import { toast } from "sonner";
 
 const GrantSchema = z.object({
   id: z.number(),
@@ -113,6 +114,7 @@ export default function MatchedGrants({ refreshKey = 0 }: MatchedGrantsProps) {
           onClick={fetchMatches}
           className="p-3 rounded-lg bg-surface border border-outline hover:border-emerald-light/30 transition-all text-on-surface-variant hover:text-white"
           title="Force Matrix Re-computation"
+          aria-label="Force Matrix Re-computation"
         >
           <RefreshCw size={16} />
         </button>
@@ -188,7 +190,7 @@ export default function MatchedGrants({ refreshKey = 0 }: MatchedGrantsProps) {
                       </a>
                     )}
                     <button
-                      onClick={() => alert("RAG proposal generation is scheduled for implementation in Phase 10!")}
+                      onClick={() => toast.info("RAG proposal generation is scheduled for implementation in Phase 10!")}
                       className="flex-1 md:flex-none py-3 px-4 rounded-lg bg-copper text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md shadow-copper/15 group-hover:shadow-copper/30"
                     >
                       <span>Draft Proposal</span>
