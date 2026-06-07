@@ -45,18 +45,31 @@ export default function Header({ user, setIsSidebarOpen }: HeaderProps) {
 
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-3">
-          <button className="p-2.5 rounded-full text-on-surface-variant hover:text-emerald-light hover:bg-emerald/5 transition-all relative">
+          <button
+            type="button"
+            className="p-2.5 rounded-full text-on-surface-variant hover:text-emerald-light hover:bg-emerald/5 transition-all relative"
+            aria-label="Notifications"
+          >
             <Bell size={20} />
             <span className="absolute top-2 right-2 w-2 h-2 bg-copper rounded-full ring-4 ring-surface"></span>
           </button>
-          <button className="p-2.5 rounded-full text-on-surface-variant hover:text-emerald-light hover:bg-emerald/5 transition-all">
+          <button
+            type="button"
+            className="p-2.5 rounded-full text-on-surface-variant hover:text-emerald-light hover:bg-emerald/5 transition-all"
+            aria-label="Help"
+          >
             <HelpCircle size={20} />
           </button>
         </div>
 
         <div className="h-8 w-[1px] bg-outline mx-2" />
 
-        <button className="flex items-center gap-3 group" title={user?.full_name || "User Profile"}>
+        <button
+          type="button"
+          className="flex items-center gap-3 group"
+          title={user?.full_name || "User Profile"}
+          aria-label={user?.full_name || "User Profile"}
+        >
           <div className="w-10 h-10 rounded-full bg-emerald/10 border border-emerald/20 flex items-center justify-center transition-all group-hover:border-emerald-light/50 overflow-hidden">
              {/* eslint-disable-next-line @next/next/no-img-element */}
              <img 
