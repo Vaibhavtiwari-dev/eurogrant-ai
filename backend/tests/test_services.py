@@ -22,9 +22,13 @@ def test_extract_text_unsupported():
 def test_vector_service_upsert_grant():
     from unittest.mock import MagicMock, patch
 
-    # Patch OpenAI before the lazy singleton is created (CI has no OPENAI_API_KEY)
+    from app.services.vector_db import get_vector_service, reset_vector_service
+
+    # Patch OpenAI before the lazy singleton is created (CI has no OPENAI_API_KEY).
+    # reset_vector_service() ensures a fresh singleton picks up the patched client.
+    reset_vector_service()
     with patch("app.services.vector_db.OpenAI"):
-        from app.services.vector_db import vector_service
+        vector_service = get_vector_service()
 
     # Mock index
     mock_index = MagicMock()
