@@ -122,7 +122,12 @@ app.include_router(api_v1_router)
 # Health Check Endpoint
 @app.get("/health")
 async def health_check():
-    health_status = {"status": "healthy", "database": "unknown", "redis": "unknown"}
+    health_status = {
+        "status": "healthy",
+        "database": "unknown",
+        "redis": "unknown",
+        "lockout_degraded": False,
+    }
     try:
         from .database import SessionLocal
         db = SessionLocal()
@@ -141,6 +146,15 @@ async def health_check():
     except Exception as e:
         health_status["redis"] = "error: " + str(e)
         health_status["status"] = "degraded"
+    # Surface lockout degradation separately: an attacker DoSing Redis must
+    # not silently disable account-lockout visibility on the /health endpoint.
+    try:
+        from .services.lockout import lockout_service
+        if lockout_service.is_degraded():
+            health_status["lockout_degraded"] = True
+            health_status["status"] = "degraded"
+    except Exception:
+        pass
     status_code = 200 if health_status["status"] == "healthy" else 503
     from fastapi.responses import JSONResponse
     return JSONResponse(content=health_status, status_code=status_code)
