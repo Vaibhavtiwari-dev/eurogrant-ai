@@ -8,6 +8,7 @@ import Header from "@/components/dashboard/Header";
 import { useAuth } from "@/context/AuthContext";
 import { Settings, User, Shield, AlertTriangle, Loader2, Save, CheckCircle2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { toast } from "sonner";
 
 export default function SettingsPage() {
   const { user, loading, logout } = useAuth();
@@ -139,8 +140,9 @@ export default function SettingsPage() {
 
               <div className="space-y-5">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant/80 mb-2">Full Name</label>
+                  <label htmlFor="profile-full-name" className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant/80 mb-2">Full Name</label>
                   <input
+                    id="profile-full-name"
                     type="text"
                     value={profile.full_name}
                     onChange={(e) => setProfile(p => ({ ...p, full_name: e.target.value }))}
@@ -149,8 +151,9 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant/80 mb-2">Email Address</label>
+                  <label htmlFor="profile-email" className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant/80 mb-2">Email Address</label>
                   <input
+                    id="profile-email"
                     type="email"
                     value={profile.email}
                     readOnly
@@ -197,8 +200,9 @@ export default function SettingsPage() {
                   { key: "confirm", label: "Confirm New Password", type: "password" },
                 ].map(({ key, label, type }) => (
                   <div key={key}>
-                    <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant/80 mb-2">{label}</label>
+                    <label htmlFor={`password-${key}`} className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant/80 mb-2">{label}</label>
                     <input
+                      id={`password-${key}`}
                       type={type}
                       value={passwordData[key as keyof typeof passwordData]}
                       onChange={(e) => setPasswordData(d => ({ ...d, [key]: e.target.value }))}
@@ -247,7 +251,7 @@ export default function SettingsPage() {
                 <p className="text-xs text-on-surface-variant mt-0.5">Permanently removes your account and all associated data. This cannot be undone.</p>
               </div>
               <button
-                onClick={() => alert("Account deletion is not yet implemented. Contact support@eurogrant.ai to delete your account.")}
+                onClick={() => toast.error("Account deletion is not yet implemented. Contact support@eurogrant.ai to delete your account.")}
                 className="py-2.5 px-5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold uppercase tracking-wider hover:bg-red-500/20 transition-all"
               >
                 Delete Account
