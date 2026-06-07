@@ -3,18 +3,17 @@ const withNextIntl = createNextIntlPlugin();
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   async headers() {
+    // CSP is set per-request by middleware (see src/middleware.ts) so that a
+    // nonce can be injected. We keep only the static, nonce-free headers here.
     return [
       {
         source: '/(.*)',
         headers: [
           {
-            key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' http://localhost:8000 https://eurogrant.ai; frame-ancestors 'none'; form-action 'self'; base-uri 'self'",
-          },
-          {
             key: 'Strict-Transport-Security',
-            value: 'max-age=31536000; includeSubDomains',
+            value: 'max-age=31536000; includeSubDomains; preload',
           },
           {
             key: 'X-Content-Type-Options',
