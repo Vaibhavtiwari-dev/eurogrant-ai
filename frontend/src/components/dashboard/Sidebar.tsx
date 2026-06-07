@@ -55,11 +55,12 @@ export default function Sidebar({ isMobile, isSidebarOpen, setIsUploadModalOpen 
       </div>
 
       <div className="px-6 mb-10">
-        <motion.button 
+        <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setIsUploadModalOpen(true)}
           className="w-full py-4 px-4 rounded-lg bg-copper text-white text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-copper/10 hover:brightness-110 transition-all"
+          aria-label="New Proposal"
         >
           <Plus size={18} />
           <span>New Proposal</span>
