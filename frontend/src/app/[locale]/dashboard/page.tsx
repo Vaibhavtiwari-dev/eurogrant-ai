@@ -15,7 +15,6 @@ import DocumentList from "@/components/DocumentList";
 import MatchedGrants from "@/components/dashboard/MatchedGrants";
 import NotificationSettings from "@/components/dashboard/NotificationSettings";
 import { useAuth } from "@/context/AuthContext";
-import { useDocumentPolling } from "@/hooks/useDocumentPolling";
 import { apiFetch } from "@/lib/api";
 import { X } from "lucide-react";
 
@@ -43,7 +42,9 @@ interface DashboardOverview {
 export default function DashboardPage() {
   const { user, loading, logout } = useAuth();
   const router = useRouter();
-  const { triggerRefresh, refreshKey } = useDocumentPolling();
+  // Local refresh signal — bumps on upload success so children refetch.
+  // (Replaces the deleted useDocumentPolling hook; see CHANGELOG.md.)
+  const [refreshKey, setRefreshKey] = useState(0);
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -86,7 +87,7 @@ export default function DashboardPage() {
   }, []);
 
   const handleUploadSuccess = () => {
-    triggerRefresh();
+    setRefreshKey((k) => k + 1);
     setIsUploadModalOpen(false);
   };
 
