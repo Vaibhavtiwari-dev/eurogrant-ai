@@ -5,6 +5,8 @@ import { Toaster } from "sonner";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { MotionConfig } from "framer-motion";
 import { routing } from "@/i18n/routing";
 
 export const metadata: Metadata = {
@@ -70,6 +72,9 @@ export default async function RootLayout({
   // Enable static rendering
   setRequestLocale(locale);
 
+  // Read the per-request CSP nonce set by middleware.
+  const nonce = (await headers()).get('x-nonce') ?? '';
+
   // Providing all messages to the client side
   const messages = await getMessages();
 
@@ -92,11 +97,14 @@ export default async function RootLayout({
       <body className="font-body-md">
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <NextIntlClientProvider messages={messages}>
           <AuthProvider>
-            {children}
+            <MotionConfig reducedMotion="user">
+              {children}
+            </MotionConfig>
           </AuthProvider>
         </NextIntlClientProvider>
         <Toaster position="top-right" richColors />
