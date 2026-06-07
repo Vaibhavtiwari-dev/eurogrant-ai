@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "Project-level PostToolUse hooks. Global hooks from ~/.claude/settings.json still run; this file adds project-scoped automation that runs in addition. Use this for hooks that only matter to the EUROGRANT codebase (frontend lint, backend ruff).",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "env": {
+          "ROOT": "${workspaceFolder}"
+        },
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const path=require('path');const m=require('fs').readFileSync(0,'utf8');try{const i=JSON.parse(m);const fp=i.tool_input?.file_path||'';if(fp.match(/\\.py$/i)){const cmd='cd '+path.dirname(fp)+' && ruff check --quiet \"'+path.basename(fp)+'\" || true';console.log('[post-edit] ruff check on',path.basename(fp))}}catch(e){}\"",
+            "description": "Suggest running ruff check after a .py file edit (project-scoped reminder; non-blocking)."
+          },
+          {
+            "type": "command",
+            "command": "node -e \"const m=require('fs').readFileSync(0,'utf8');try{const i=JSON.parse(m);const fp=i.tool_input?.file_path||'';if(fp.match(/\\.(ts|tsx|js|jsx)$/i)&&fp.includes('/frontend/')){console.log('[post-edit] remember to run: cd frontend && npx eslint --fix',fp)}}catch(e){}\"",
+            "description": "Remind to run eslint --fix on frontend .tsx/.ts edits (project-scoped; non-blocking)."
+          }
+        ]
+      }
+    ]
+  }
+}

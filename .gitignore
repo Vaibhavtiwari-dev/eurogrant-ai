@@ -53,3 +53,29 @@ mcp_request.json
 # IDE and temp
 .idea/
 tmp/
+
+# Python caches and coverage
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.mypy_cache/
+.pyright_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.pytest_cache/
+
+# Virtualenvs
+.venv/
+venv/
+env/
+
+# Editor / OS
+.vscode/
+*.swp
+*.swo
+Thumbs.db
