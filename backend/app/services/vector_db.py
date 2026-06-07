@@ -250,18 +250,3 @@ def reset_vector_service() -> None:
     """Reset the lazy singleton. Exists solely for test isolation — do NOT call in production."""
     global _vector_service
     _vector_service = None
-
-
-# Lazy module-level export: enables `from .vector_db import vector_service` without
-# eager Pinecone initialisation at import time.  The singleton is created on first
-# attribute access (import or direct reference).
-_vector_service_instance: "VectorService | None" = None
-
-
-def __getattr__(name: str):
-    if name == "vector_service":
-        global _vector_service_instance
-        if _vector_service_instance is None:
-            _vector_service_instance = VectorService()
-        return _vector_service_instance
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
