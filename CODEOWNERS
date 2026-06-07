@@ -1,0 +1,49 @@
+# CODEOWNERS
+# Format: <path-pattern> <owner> [<owner>...]
+# At least one owner must approve a PR that touches the matching files.
+# Order matters: the last match wins. Keep the most specific rules at the
+# bottom of the file.
+
+# Default: project lead owns everything.
+*                                                       @vaibhav09012007-design
+
+# Backend — auth, security, and cryptography
+/backend/app/auth.py                                    @vaibhav09012007-design
+/backend/app/security_headers.py                        @vaibhav09012007-design
+/backend/app/routers/auth.py                            @vaibhav09012007-design
+/backend/app/services/lockout.py                        @vaibhav09012007-design
+/backend/app/limiter.py                                 @vaibhav09012007-design
+
+# Backend — RAG + proposal generation
+/backend/app/services/extraction.py                     @vaibhav09012007-design
+/backend/app/services/proposal_gen.py                   @vaibhav09012007-design
+/backend/app/services/matching.py                       @vaibhav09012007-design
+/backend/app/services/vector_db.py                      @vaibhav09012007-design
+
+# Backend — upload pipeline (file validation, S3, document processing)
+/backend/app/routers/uploads.py                         @vaibhav09012007-design
+/backend/app/services/s3.py                             @vaibhav09012007-design
+/backend/app/services/discovery.py                      @vaibhav09012007-design
+/backend/app/services/notifications.py                  @vaibhav09012007-design
+
+# Database — schema, migrations, models
+/backend/alembic/                                       @vaibhav09012007-design
+/backend/app/models.py                                  @vaibhav09012007-design
+/backend/app/schemas.py                                 @vaibhav09012007-design
+
+# Frontend — auth, settings, and dashboard
+/frontend/src/app/\[locale\]/settings/                  @vaibhav09012007-design
+/frontend/src/app/\[locale\]/login/                     @vaibhav09012007-design
+/frontend/src/app/\[locale\]/register/                  @vaibhav09012007-design
+/frontend/src/components/dashboard/                     @vaibhav09012007-design
+
+# Frontend — API client, validation, security headers
+/frontend/src/lib/api.ts                                @vaibhav09012007-design
+/frontend/next.config.ts                                @vaibhav09012007-design
+/frontend/src/middleware.ts                             @vaibhav09012007-design
+
+# CI / Docker / infra
+/.github/                                               @vaibhav09012007-design
+/Dockerfile                                             @vaibhav09012007-design
+/docker-compose.yml                                     @vaibhav09012007-design
+/nginx/                                                 @vaibhav09012007-design
