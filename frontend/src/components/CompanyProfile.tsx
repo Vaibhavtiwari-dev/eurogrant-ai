@@ -52,7 +52,7 @@ export default function CompanyProfile({ refreshKey }: CompanyProfileProps) {
     return (
       <div className="flex flex-col items-center justify-center p-12" role="status" aria-label={t("querying")}>
         <Loader2 className="h-8 w-8 text-sky-400 animate-spin mb-4" />
-        <p className="text-slate-300 font-bold text-sm">{t("querying")}</p>
+        <p className="text-on-surface-variant font-bold text-sm">{t("querying")}</p>
       </div>
     );
   }
@@ -64,7 +64,7 @@ export default function CompanyProfile({ refreshKey }: CompanyProfileProps) {
           <Sparkles className="h-8 w-8 text-sky-400" />
         </div>
         <h3 className="text-xl font-headline-md text-white mb-2">{t("noProfileTitle")}</h3>
-        <p className="text-slate-300 font-medium text-sm max-w-sm mx-auto">
+        <p className="text-on-surface-variant font-medium text-sm max-w-sm mx-auto">
           {t("noProfileDesc")}
         </p>
       </div>
@@ -111,15 +111,15 @@ export default function CompanyProfile({ refreshKey }: CompanyProfileProps) {
         <div className="pt-8 space-y-4">
           <div className="flex items-center gap-3">
             <Building2 className="text-sky-400" size={16} aria-hidden="true" />
-            <span className="text-sm font-data-mono text-slate-300 uppercase tracking-widest">{org.sector}</span>
+            <span className="text-sm font-data-mono text-on-surface-variant uppercase tracking-widest">{org.sector}</span>
           </div>
           <div className="flex items-center gap-3">
             <Users className="text-sky-400" size={16} aria-hidden="true" />
-            <span className="text-sm font-data-mono text-slate-300 uppercase tracking-widest">{org.headcount_range} {t("personnel")}</span>
+            <span className="text-sm font-data-mono text-on-surface-variant uppercase tracking-widest">{org.headcount_range} {t("personnel")}</span>
           </div>
           <div className="flex items-center gap-3">
             <Shield className="text-sky-400" size={16} aria-hidden="true" />
-            <span className="text-sm font-data-mono text-slate-300 uppercase tracking-widest">{org.legal_entity_type}</span>
+            <span className="text-sm font-data-mono text-on-surface-variant uppercase tracking-widest">{org.legal_entity_type}</span>
           </div>
         </div>
       </div>
@@ -127,7 +127,7 @@ export default function CompanyProfile({ refreshKey }: CompanyProfileProps) {
       {/* Tags Section */}
       <div className="col-span-2 space-y-10 flex flex-col justify-center">
         <div>
-          <h4 className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-4">
+          <h4 className="flex items-center gap-2 text-xs font-black text-on-surface-variant uppercase tracking-[0.2em] mb-4">
             <Globe className="h-3 w-3 text-sky-400" aria-hidden="true" />
             {t("marketReach")}
           </h4>
@@ -141,13 +141,13 @@ export default function CompanyProfile({ refreshKey }: CompanyProfileProps) {
         </div>
 
         <div>
-          <h4 className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-4">
+          <h4 className="flex items-center gap-2 text-xs font-black text-on-surface-variant uppercase tracking-[0.2em] mb-4">
             <Cpu className="h-3 w-3 text-sky-400" aria-hidden="true" />
             {t("techVectors")}
           </h4>
           <div className="flex flex-wrap gap-2" aria-label="Core technologies">
             {technologies.map((tech: string) => (
-              <span key={tech} className="bg-white/5 text-slate-300 px-3 py-1.5 rounded-md font-data-mono text-xs border border-white/10 uppercase tracking-wider">
+              <span key={tech} className="bg-white/5 text-on-surface-variant px-3 py-1.5 rounded-md font-data-mono text-xs border border-white/10 uppercase tracking-wider">
                 {tech}
               </span>
             ))}
@@ -161,8 +161,8 @@ export default function CompanyProfile({ refreshKey }: CompanyProfileProps) {
              <Activity className="text-sky-400 group-hover:scale-110 transition-transform" size={20} />
           </div>
           <div>
-            <p className="text-xs font-data-mono text-slate-300 uppercase tracking-widest">{t("structuralIntegrity")}</p>
-            <p className="text-xs font-body-md text-slate-600">{t("crossValidation")}</p>
+            <p className="text-xs font-data-mono text-on-surface-variant uppercase tracking-widest">{t("structuralIntegrity")}</p>
+            <p className="text-xs font-body-md text-on-surface-variant opacity-60">{t("crossValidation")}</p>
           </div>
         </div>
       </div>
@@ -174,7 +174,7 @@ function HealthMetric({ label, value, color, glow }: { label: string, value: num
   return (
     <div>
       <div className="flex justify-between mb-2">
-        <span className="font-data-mono text-xs text-slate-500 uppercase tracking-widest">{label}</span>
+        <span className="font-data-mono text-xs text-on-surface-variant uppercase tracking-widest">{label}</span>
         <span className="font-data-mono text-xs text-white" aria-label={`${label} score: ${value} out of 100`}>{value}/100</span>
       </div>
       <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-white/5">
