@@ -74,7 +74,7 @@ export default function DocumentList({ refreshKey }: DocumentListProps) {
   if (documents.length === 0) {
     return (
       <div className="text-center p-12 border border-dashed border-white/10 rounded-xl bg-white/5 backdrop-blur-md">
-        <p className="text-slate-300 font-medium opacity-60 text-sm">{t("empty")}</p>
+        <p className="text-on-surface-variant font-medium opacity-60 text-sm">{t("empty")}</p>
       </div>
     );
   }
@@ -82,11 +82,11 @@ export default function DocumentList({ refreshKey }: DocumentListProps) {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
-        <h3 className="font-headline-md text-headline-md text-slate-300 flex items-center gap-3">
+        <h3 className="font-headline-md text-headline-md text-on-surface-variant flex items-center gap-3">
           <Radar className="text-sky-400" size={20} aria-hidden="true" />
           {t("title")}
         </h3>
-        <span className="font-label-sm text-sm text-slate-300 uppercase tracking-widest opacity-60">
+        <span className="font-label-sm text-sm text-on-surface-variant uppercase tracking-widest opacity-60">
           {t("insightsFound", { count: documents.length })}
         </span>
       </div>
@@ -134,11 +134,11 @@ function DocumentCard({ doc }: { doc: Document }) {
       <div className="flex justify-between items-start">
         <div className="flex gap-4">
           <div className="bg-white/5 p-3 rounded-lg border border-white/10 group-hover:border-white/20 transition-colors" aria-hidden="true">
-            <FileText className="text-slate-300" size={24} />
+            <FileText className="text-on-surface-variant" size={24} />
           </div>
           <div>
             <h4 className="font-headline-lg text-xl text-white mb-1 group-hover:text-sky-400 transition-colors">{doc.file_name}</h4>
-            <p className="font-body-md text-sm text-slate-300 max-w-2xl">
+            <p className="font-body-md text-sm text-on-surface-variant max-w-2xl">
               {t("verified")}
             </p>
           </div>
@@ -151,7 +151,7 @@ function DocumentCard({ doc }: { doc: Document }) {
       <div className="mt-6 flex flex-wrap gap-3">
         <InsightTag label={t("aiAlignment")} />
         {doc.status === "processed" && <InsightTag label={t("vectorized")} active />}
-        <time className="ml-auto text-xs text-slate-500 font-data-mono uppercase tracking-widest flex items-center gap-2" dateTime={doc.created_at}>
+        <time className="ml-auto text-xs text-on-surface-variant font-data-mono uppercase tracking-widest flex items-center gap-2" dateTime={doc.created_at}>
           {format.dateTime(new Date(doc.created_at), {
             year: 'numeric',
             month: 'short',
@@ -170,7 +170,7 @@ function DocumentCard({ doc }: { doc: Document }) {
 
 function InsightTag({ label, active = false }: { label: string, active?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-800/50 text-slate-300 font-label-sm text-xs border border-white/5">
+    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-800/50 text-on-surface-variant font-label-sm text-xs border border-white/5">
       <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-400' : 'bg-sky-400'} animate-pulse`} aria-hidden="true"></span>
       {label}
     </span>
