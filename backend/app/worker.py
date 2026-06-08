@@ -1,16 +1,17 @@
-import os
 import json
+import logging
+import os
+
 from celery import Celery
 from celery.schedules import crontab
 from openai import OpenAI
-import logging
 
 logger = logging.getLogger(__name__)
 
 celery_app = Celery(
     "worker",
     broker=os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0"),
-    backend=os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
+    backend=os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0"),
 )
 
 celery_app.conf.update(
@@ -41,19 +42,25 @@ celery_app.conf.beat_schedule = {
 
 openai_client: OpenAI | None = None
 
+
 def _get_openai_client() -> OpenAI:
     global openai_client
     if openai_client is None:
         from openai import OpenAI as _OpenAI
+
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
-            raise RuntimeError("OPENAI_API_KEY environment variable is required for document processing")
+            raise RuntimeError(
+                "OPENAI_API_KEY environment variable is required for document processing"
+            )
         openai_client = _OpenAI(api_key=api_key)
     return openai_client
+
 
 def _reset_openai_client() -> None:
     global openai_client
     openai_client = None
+
 
 def _inject_openai_client(client: OpenAI) -> None:
     global openai_client
@@ -69,8 +76,8 @@ def _inject_openai_client(client: OpenAI) -> None:
 def process_company_document(document_id: int):
     from .database import SessionLocal
     from .models import CompanyDocument, DocumentStatus
-    from .services.s3 import s3_service
     from .services.extraction import extraction_service, redact_pii
+    from .services.s3 import s3_service
     from .services.vector_db import get_vector_service
 
     db = SessionLocal()
@@ -122,7 +129,7 @@ def extract_company_profile(text: str, org_id: int, db):
         response = _get_openai_client().chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
         )
 
         raw_content = response.choices[0].message.content
@@ -136,9 +143,7 @@ def extract_company_profile(text: str, org_id: int, db):
         elif isinstance(raw_content, str):
             profile_data = json.loads(raw_content)
         else:
-            raise ValueError(
-                f"LLM returned unsupported content type: {type(raw_content).__name__}"
-            )
+            raise ValueError(f"LLM returned unsupported content type: {type(raw_content).__name__}")
 
         org = db.query(Organization).filter(Organization.id == org_id).first()
         if org:
@@ -161,7 +166,9 @@ def extract_company_profile(text: str, org_id: int, db):
             org.revenue_tier = "1M-5M"
             org.legal_entity_type = "OÜ"
             org.countries_of_operation = json.dumps(["Estonia", "Finland", "Germany"])
-            org.core_technologies = json.dumps(["React", "Next.js", "FastAPI", "PostgreSQL", "PyTorch"])
+            org.core_technologies = json.dumps(
+                ["React", "Next.js", "FastAPI", "PostgreSQL", "PyTorch"]
+            )
             db.commit()
 
 
@@ -185,7 +192,9 @@ def scrape_grants():
         updated_or_created_count = 0
         for data in discovered_grants:
             try:
-                existing_grant = db.query(Grant).filter(Grant.external_id == data["external_id"]).first()
+                existing_grant = (
+                    db.query(Grant).filter(Grant.external_id == data["external_id"]).first()
+                )
                 tags_json = json.dumps(data["sector_tags"])
 
                 if existing_grant:
@@ -210,7 +219,7 @@ def scrape_grants():
                         eligibility_criteria=data["eligibility_criteria"],
                         scoring_rubric=data["scoring_rubric"],
                         source_url=data["source_url"],
-                        sector_tags=tags_json
+                        sector_tags=tags_json,
                     )
                     db.add(new_grant)
                     db.commit()
@@ -226,20 +235,22 @@ def scrape_grants():
                     "title": grant_obj.title,
                     "source_url": grant_obj.source_url,
                     "funding_range": grant_obj.funding_range,
-                    "sector_tags": tags_json
+                    "sector_tags": tags_json,
                 }
                 get_vector_service().upsert_grant(
-                    grant_id=grant_obj.id,
-                    text=text_to_embed,
-                    metadata=metadata
+                    grant_id=grant_obj.id, text=text_to_embed, metadata=metadata
                 )
 
             except Exception as item_err:
-                logger.error(f"Failed to process individual grant {data.get('external_id')}: {item_err}")
+                logger.error(
+                    f"Failed to process individual grant {data.get('external_id')}: {item_err}"
+                )
                 db.rollback()
                 continue
 
-        logger.info(f"Completed periodic grant scraping sweep. Processed/Indexed {updated_or_created_count} grants.")
+        logger.info(
+            f"Completed periodic grant scraping sweep. Processed/Indexed {updated_or_created_count} grants."
+        )
 
     except Exception as e:
         logger.error(f"Critical failure in scrape_grants task execution: {e}")
@@ -254,13 +265,13 @@ def scrape_grants():
 )
 def scan_for_new_matches():
     from .database import SessionLocal
-    from .models import Organization, GrantMatch, User, Grant
+    from .models import Grant, GrantMatch, Organization, User
     from .services.notifications import notification_service
 
     logger.info("Initiating periodic scan_for_new_matches task sweep")
     db = SessionLocal()
     try:
-        orgs = db.query(Organization).filter(Organization.alert_email_enabled == True).all()
+        orgs = db.query(Organization).filter(Organization.alert_email_enabled.is_(True)).all()
         for org in orgs:
             query_parts = []
             if org.sector:
@@ -275,9 +286,12 @@ def scan_for_new_matches():
             matches_data = []
             try:
                 from .services.vector_db import get_vector_service
+
                 matches_data = get_vector_service().search_grants(query_str, top_k=10)
             except Exception as e:
-                logger.warning(f"Vector search failed for org {org.id} in scanning: {e}. Falling back to default DB search.")
+                logger.warning(
+                    f"Vector search failed for org {org.id} in scanning: {e}. Falling back to default DB search."
+                )
 
             if not matches_data:
                 grants = db.query(Grant).limit(5).all()
@@ -291,10 +305,14 @@ def scan_for_new_matches():
             for match in matches_data:
                 score = match["score"]
                 if score >= org.match_threshold:
-                    existing_match = db.query(GrantMatch).filter(
-                        GrantMatch.organization_id == org.id,
-                        GrantMatch.grant_id == match["grant_id"]
-                    ).first()
+                    existing_match = (
+                        db.query(GrantMatch)
+                        .filter(
+                            GrantMatch.organization_id == org.id,
+                            GrantMatch.grant_id == match["grant_id"],
+                        )
+                        .first()
+                    )
 
                     if not existing_match:
                         grant = db.query(Grant).filter(Grant.id == match["grant_id"]).first()
@@ -303,32 +321,42 @@ def scan_for_new_matches():
 
                         org_profile_text = f"Sector: {org.sector}, Technologies: {org.core_technologies}, Countries: {org.countries_of_operation}"
                         try:
-                            explanation = extraction_service.explain_match(org_profile_text, grant.description)
+                            explanation = extraction_service.explain_match(
+                                org_profile_text, grant.description
+                            )
                         except Exception as ex_err:
-                            logger.error(f"Failed to generate explanation for grant {grant.id}: {ex_err}")
+                            logger.error(
+                                f"Failed to generate explanation for grant {grant.id}: {ex_err}"
+                            )
                             explanation = "This grant is highly compatible with your organization's core profile."
 
                         new_match = GrantMatch(
                             organization_id=org.id,
                             grant_id=grant.id,
                             score=score,
-                            explanation=explanation
+                            explanation=explanation,
                         )
                         db.add(new_match)
                         db.commit()
                         db.refresh(new_match)
 
-                        users = db.query(User).filter(User.organization_id == org.id, User.is_active == True).all()
+                        users = (
+                            db.query(User)
+                            .filter(User.organization_id == org.id, User.is_active.is_(True))
+                            .all()
+                        )
                         for user in users:
                             try:
                                 notification_service.send_match_alert(
                                     email=user.email,
                                     grant_title=grant.title,
                                     score=score,
-                                    explanation=explanation
+                                    explanation=explanation,
                                 )
                             except Exception as email_err:
-                                logger.error(f"Failed to send email alert to {user.email}: {email_err}")
+                                logger.error(
+                                    f"Failed to send email alert to {user.email}: {email_err}"
+                                )
 
         logger.info("Completed periodic match scan and notifications sweep.")
     except Exception as e:
