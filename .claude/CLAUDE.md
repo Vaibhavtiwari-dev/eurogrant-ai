@@ -82,8 +82,10 @@ in a separate pass).
 ## Reference
 
 - `~/.claude/CLAUDE.md` — global mandate order, hooks, workflows.
-- `~/.claude/rules/ecc/common/` — language-agnostic standards.
-- `~/.claude/rules/ecc/web/` — frontend-specific rules.
+- `.claude/rules/ecc/` — project-local ECC rules (imported from global; overrides `~/.claude/rules/ecc/`).
+- `.claude/skills/ecc/` — project-local ECC skills (195).
+- `.claude/skills/gsd-*` — project-local GSD skills (89).
+- `.claude/agents/gsd/` — GSD agent prompts (33; OpenCode format).
 - `backend/docs/adr/0001-local-storage-fallback.md` — local-storage
   fallback rationale.
 - `backend/docs/adr/0002-secure-cookie-session-management.md` —
