@@ -49,19 +49,23 @@ export default function DocumentUpload({ onUploadSuccess }: DocumentUploadProps)
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
     },
     maxFiles: 1,
+    maxSize: 25 * 1024 * 1024,
     disabled: isUploading,
   });
 
   return (
     <div className="w-full space-y-8">
       <div
-        {...getRootProps()}
+        {...getRootProps({
+          "aria-label": "Upload company document",
+          role: "button",
+        })}
         className={`relative w-full h-80 rounded-lg flex flex-col items-center justify-center text-center transition-all duration-500 overflow-hidden group
           ${isDragActive ? "border-emerald-light bg-emerald/5 shadow-emerald" : "bg-forest-dark/20 border border-dashed border-outline hover:border-emerald-light/40 hover:bg-forest-dark/40"}
           ${isUploading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
         `}
       >
-        <input {...getInputProps()} />
+        <input {...getInputProps({"aria-label": "Company document file"})} />
         
         {/* Animated background glow for drag active */}
         {isDragActive && (

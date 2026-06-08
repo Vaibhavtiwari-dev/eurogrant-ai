@@ -1,7 +1,6 @@
 import createMiddleware from 'next-intl/middleware';
 import {routing} from './i18n/routing';
-import {NextResponse, type NextRequest} from 'next/server';
-import crypto from 'node:crypto';
+import {NextRequest, NextResponse} from 'next/server';
 
 const intlMiddleware = createMiddleware(routing);
 
@@ -31,17 +30,18 @@ export default function middleware(request: NextRequest) {
   const {pathname} = request.nextUrl;
 
   // Per-request nonce for inline scripts (e.g. JSON-LD in layout).
-  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+  const nonce = btoa(crypto.randomUUID());
   const cspHeader = buildCsp(nonce);
 
   // Propagate nonce to downstream Server Components via request headers.
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', cspHeader);
+  const requestWithHeaders = new NextRequest(request, {headers: requestHeaders});
 
   let response: NextResponse;
   if (isPublicPath(pathname)) {
-    response = intlMiddleware({...request, headers: requestHeaders}) as NextResponse;
+    response = intlMiddleware(requestWithHeaders);
   } else {
     const token = request.cookies.get('access_token');
     if (!token) {
@@ -49,7 +49,7 @@ export default function middleware(request: NextRequest) {
       loginUrl.searchParams.set('redirect', pathname);
       return NextResponse.redirect(loginUrl);
     }
-    response = intlMiddleware({...request, headers: requestHeaders}) as NextResponse;
+    response = intlMiddleware(requestWithHeaders);
   }
 
   // Mirror CSP + nonce onto the outgoing response.

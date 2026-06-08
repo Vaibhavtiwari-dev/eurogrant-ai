@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Bell, Sliders, Save, Loader2, CheckCircle2, ShieldCheck } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import { OrganizationSchema, type Organization } from "@/schemas/organization";
+import { OrganizationSchema } from "@/schemas/organization";
 
 export default function NotificationSettings() {
   const [emailAlerts, setEmailAlerts] = useState(true);

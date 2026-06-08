@@ -67,8 +67,8 @@ export default function CompanyProfile({ refreshKey }: CompanyProfileProps) {
     }
   };
 
-  const countries = parseJsonSafe(org.countries_of_operation);
-  const technologies = parseJsonSafe(org.core_technologies);
+  const countries = parseJsonSafe(org.countries_of_operation ?? undefined);
+  const technologies = parseJsonSafe(org.core_technologies ?? undefined);
 
   // Calculate dynamic metrics based on profile completeness and data
   const calculateMetrics = () => {
