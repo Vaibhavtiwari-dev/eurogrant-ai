@@ -3,21 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { Building2, Users, Shield, Globe, Cpu, Loader2, Sparkles, Activity } from "lucide-react";
-import { z } from "zod";
 import { useTranslations } from "next-intl";
-
-const OrganizationSchema = z.object({
-  name: z.string(),
-  subscription_tier: z.string(),
-  sector: z.string().optional(),
-  headcount_range: z.string().optional(),
-  revenue_tier: z.string().optional(),
-  legal_entity_type: z.string().optional(),
-  countries_of_operation: z.string().optional(),
-  core_technologies: z.string().optional(),
-});
-
-type Organization = z.infer<typeof OrganizationSchema>;
+import { OrganizationSchema, type Organization } from "@/schemas/organization";
 
 interface CompanyProfileProps {
   refreshKey: number;
