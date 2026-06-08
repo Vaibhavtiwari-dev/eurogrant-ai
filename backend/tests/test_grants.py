@@ -142,8 +142,6 @@ def test_get_grant_matches_success(db_session, authenticated_client):
         ]
 
         response = authenticated_client.get("/api/v1/grants/matches")
-        print("RESPONSE STATUS:", response.status_code)
-        print("RESPONSE BODY:", response.json())
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
