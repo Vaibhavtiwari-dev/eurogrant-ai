@@ -1,0 +1,86 @@
+# EUROGRANT backend — tool configuration
+# See ~/.claude/rules/ecc/python/* and ../../.github/workflows/ci.yml for the
+# why behind these settings.
+
+[project]
+name = "eurogrant-backend"
+version = "0.1.0"
+description = "B2B SaaS for EU grant discovery, RAG matching, and proposal drafting."
+requires-python = ">=3.11,<3.12"
+
+# ---------------------------------------------------------------------------
+# Ruff: lint + format. Replaces flake8, isort, pyupgrade, simplify.
+# Docs: https://docs.astral.sh/ruff/
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = ["alembic/versions", "build", "dist"]
+
+[tool.ruff.lint]
+# E/W  - pycodestyle errors and warnings
+# F    - pyflakes (undefined names, unused imports)
+# I    - isort (import order)
+# B    - bugbear (likely bugs)
+# UP   - pyupgrade (modern Python syntax)
+# SIM  - simplify (unnecessary comprehensions, etc.)
+select = ["E", "W", "F", "I", "B", "UP", "SIM"]
+ignore = [
+    "E501",  # line-too-long — handled by `ruff format`
+    "B008",  # function-call-in-default-argument — FastAPI Depends() pattern
+    "SIM108",  # use ternary operator — readability call
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]  # asserts in tests are fine
+"tests/conftest.py" = ["E402"]  # test DB env must be set before importing the app
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "tests"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+# ---------------------------------------------------------------------------
+# Mypy: type check.
+# Lenient config — the codebase is not yet fully type-hinted (audit M12).
+# Tighten over time via the `disallow_untyped_defs` / `warn_return_any` knobs.
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+disallow_untyped_defs = false
+warn_return_any = false
+warn_unused_ignores = false
+no_implicit_optional = true
+check_untyped_defs = false
+exclude = ["alembic/", "tests/"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+# ---------------------------------------------------------------------------
+# Coverage: pytest-cov.
+# Thresholds are intentionally absent in Chunk 1 — Chunk 6 (Test coverage)
+# will set `--cov-fail-under=<measured>` once coverage is raised.
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "app/main.py",  # exercised via integration tests, hard to unit-test
+    "app/worker.py",  # exercised via worker tests
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "\\.\\.\\.",
+]
