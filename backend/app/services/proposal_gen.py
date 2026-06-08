@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import List, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -24,7 +23,7 @@ class ProposalService:
         db: Session,
         org_id: int,
         grant_id: int,
-    ) -> Tuple[str, float]:
+    ) -> tuple[str, float]:
         """Generate a first-pass proposal draft for a given organisation and grant.
 
         Orchestrates five small helpers — ``_load_entities``, ``_build_context``,
@@ -51,17 +50,13 @@ class ProposalService:
         db: Session,
         org_id: int,
         grant_id: int,
-    ) -> Tuple[models.Grant, models.Organization]:
+    ) -> tuple[models.Grant, models.Organization]:
         """Fetch the Grant and Organisation records. Raises ValueError if missing."""
         grant = db.query(models.Grant).filter(models.Grant.id == grant_id).first()
         if not grant:
             raise ValueError(f"Grant with id {grant_id} not found")
 
-        org = (
-            db.query(models.Organization)
-            .filter(models.Organization.id == org_id)
-            .first()
-        )
+        org = db.query(models.Organization).filter(models.Organization.id == org_id).first()
         if not org:
             raise ValueError(f"Organisation with id {org_id} not found")
 
@@ -78,7 +73,7 @@ class ProposalService:
         Falls back to a flat profile dump when the vector store is unavailable
         or returns no chunks.
         """
-        context_chunks: List[str] = []
+        context_chunks: list[str] = []
         try:
             context_chunks = get_vector_service().query_namespace(
                 query_text=f"Company sector, technologies, and operations for {grant.title}",
@@ -109,7 +104,7 @@ class ProposalService:
         self,
         grant: models.Grant,
         company_context: str,
-    ) -> Tuple[str, str]:
+    ) -> tuple[str, str]:
         """Construct the (system, user) prompt pair for the LLM call."""
         system_prompt = (
             "You are EuroGrant AI, a professional grant proposal writer. "
@@ -166,7 +161,7 @@ class ProposalService:
         raw: str,
         org_id: int,
         grant_id: int,
-    ) -> Tuple[str, float]:
+    ) -> tuple[str, float]:
         """Parse the LLM JSON response. Falls back to treating raw text as the proposal."""
         try:
             result = json.loads(raw)

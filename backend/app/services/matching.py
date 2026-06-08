@@ -1,17 +1,17 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..errors import error_response
 from ..services.extraction import extraction_service
+from ..services.vector_db import get_vector_service
 
 # Fallback scoring constants for SQL-based matching path
 BASE_FALLBACK_SCORE = 0.88
 FALLBACK_SCORE_DECAY = 0.05
-from ..services.vector_db import get_vector_service
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class GrantMatchingService:
     # Public API
     # ------------------------------------------------------------------
 
-    def get_matches(self, current_user: models.User) -> List[schemas.GrantMatchOut]:
+    def get_matches(self, current_user: models.User) -> list[schemas.GrantMatchOut]:
         """Return ranked grant matches for the current user's organisation.
 
         Flow:
@@ -60,11 +60,7 @@ class GrantMatchingService:
         org = self._get_organization(current_user)
         query_str = self._build_query_parts(org)
         matches_data = self._get_vector_matches(query_str)
-        results = (
-            self._build_results_from_matches(org, matches_data)
-            if matches_data
-            else []
-        )
+        results = self._build_results_from_matches(org, matches_data) if matches_data else []
         if not results:
             results = self._fallback_results(org)
         return sorted(results, key=lambda x: x.score, reverse=True)
@@ -136,7 +132,7 @@ class GrantMatchingService:
             parts.append(f"Countries: {org.countries_of_operation}")
         return ", ".join(parts) if parts else "General startup business grant"
 
-    def _get_vector_matches(self, query_str: str) -> List[Dict[str, Any]]:
+    def _get_vector_matches(self, query_str: str) -> list[dict[str, Any]]:
         """Query the vector database for semantically similar grants.
 
         Failures are logged and swallowed, returning an empty list so the
@@ -151,7 +147,7 @@ class GrantMatchingService:
         """
         try:
             return get_vector_service().search_grants(query_str, top_k=10)
-        except Exception as exc:
+        except Exception:
             # Capture the exception with full context (traceback + org_id
             # requires the caller; we log query length as a stable proxy).
             logger.exception(
@@ -163,8 +159,8 @@ class GrantMatchingService:
     def _build_results_from_matches(
         self,
         org: models.Organization,
-        matches_data: List[Dict[str, Any]],
-    ) -> List[schemas.GrantMatchOut]:
+        matches_data: list[dict[str, Any]],
+    ) -> list[schemas.GrantMatchOut]:
         """Build GrantMatchOut results from vector search matches.
 
         Caches AI-generated explanations in the GrantMatch table.  Both
@@ -185,24 +181,24 @@ class GrantMatchingService:
         grant_ids = [m["grant_id"] for m in matches_data]
 
         # --- Batch-load existing GrantMatch records (N+1 fix) ---
-        existing_rows: Dict[int, models.GrantMatch] = {
+        existing_rows: dict[int, models.GrantMatch] = {
             row.grant_id: row
-            for row in self.db.query(models.GrantMatch).filter(
+            for row in self.db.query(models.GrantMatch)
+            .filter(
                 models.GrantMatch.organization_id == org.id,
                 models.GrantMatch.grant_id.in_(grant_ids),
-            ).all()
-        }
-
-        # --- Batch-load Grant records (N+1 fix) ---
-        grants: Dict[int, models.Grant] = {
-            g.id: g
-            for g in self.db.query(models.Grant)
-            .filter(models.Grant.id.in_(grant_ids))
+            )
             .all()
         }
 
+        # --- Batch-load Grant records (N+1 fix) ---
+        grants: dict[int, models.Grant] = {
+            g.id: g
+            for g in self.db.query(models.Grant).filter(models.Grant.id.in_(grant_ids)).all()
+        }
+
         org_profile_text = self._format_org_profile(org)
-        results: List[schemas.GrantMatchOut] = []
+        results: list[schemas.GrantMatchOut] = []
 
         for match in matches_data:
             gid = match["grant_id"]
@@ -215,12 +211,8 @@ class GrantMatchingService:
             if existing:
                 explanation = existing.explanation
             else:
-                explanation = self._generate_explanation(
-                    org_profile_text, grant, gid
-                )
-                self._save_match(
-                    org, gid, match["score"], explanation
-                )
+                explanation = self._generate_explanation(org_profile_text, grant, gid)
+                self._save_match(org, gid, match["score"], explanation)
 
             results.append(
                 schemas.GrantMatchOut(
@@ -229,7 +221,7 @@ class GrantMatchingService:
                     grant_id=gid,
                     score=match["score"],
                     explanation=explanation,
-                    created_at=datetime.now(timezone.utc),
+                    created_at=datetime.now(UTC),
                     grant=schemas.GrantOut.model_validate(grant),
                 )
             )
@@ -239,7 +231,7 @@ class GrantMatchingService:
     def _fallback_results(
         self,
         org: models.Organization,
-    ) -> List[schemas.GrantMatchOut]:
+    ) -> list[schemas.GrantMatchOut]:
         """Return scored results from a plain SQL query when vector search is unavailable.
 
         Assigns descending scores (0.88, 0.83, 0.78, ...) and caches
@@ -258,16 +250,18 @@ class GrantMatchingService:
         grant_ids = [g.id for g in grants]
 
         # --- Batch-load existing GrantMatch records (N+1 fix) ---
-        existing_rows: Dict[int, models.GrantMatch] = {
+        existing_rows: dict[int, models.GrantMatch] = {
             row.grant_id: row
-            for row in self.db.query(models.GrantMatch).filter(
+            for row in self.db.query(models.GrantMatch)
+            .filter(
                 models.GrantMatch.organization_id == org.id,
                 models.GrantMatch.grant_id.in_(grant_ids),
-            ).all()
+            )
+            .all()
         }
 
         org_profile_text = self._format_org_profile(org)
-        results: List[schemas.GrantMatchOut] = []
+        results: list[schemas.GrantMatchOut] = []
 
         for i, grant in enumerate(grants):
             score = BASE_FALLBACK_SCORE - (i * FALLBACK_SCORE_DECAY)
@@ -278,9 +272,7 @@ class GrantMatchingService:
             if existing:
                 explanation = existing.explanation
             else:
-                explanation = self._generate_explanation(
-                    org_profile_text, grant, grant.id
-                )
+                explanation = self._generate_explanation(org_profile_text, grant, grant.id)
                 self._save_match(org, grant.id, score, explanation)
 
             results.append(
@@ -290,7 +282,7 @@ class GrantMatchingService:
                     grant_id=grant.id,
                     score=score,
                     explanation=explanation,
-                    created_at=datetime.now(timezone.utc),
+                    created_at=datetime.now(UTC),
                     grant=schemas.GrantOut.model_validate(grant),
                 )
             )
@@ -318,18 +310,13 @@ class GrantMatchingService:
             A human-readable explanation string.
         """
         try:
-            return extraction_service.explain_match(
-                org_profile_text, grant.description
-            )
-        except Exception as ex_err:
+            return extraction_service.explain_match(org_profile_text, grant.description)
+        except Exception:
             logger.exception(
                 "matching: explanation generation failed for grant %s",
                 grant_id,
             )
-            return (
-                "This grant is highly compatible with your "
-                "organization's core profile."
-            )
+            return "This grant is highly compatible with your organization's core profile."
 
     def _save_match(
         self,
@@ -351,7 +338,7 @@ class GrantMatchingService:
             grant_id=grant_id,
             score=score,
             explanation=explanation,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         self.db.add(new_match)
         self.db.commit()

@@ -1,10 +1,9 @@
+import html
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 
 import boto3
-import html
 from botocore.exceptions import ClientError
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 

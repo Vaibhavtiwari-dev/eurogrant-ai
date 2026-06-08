@@ -1,10 +1,11 @@
-import os
 import hashlib
 import logging
-from typing import Tuple
+import os
+
 from redis import Redis
 
 logger = logging.getLogger(__name__)
+
 
 class LockoutService:
     def __init__(self) -> None:
@@ -14,7 +15,7 @@ class LockoutService:
             self.redis = Redis.from_url(redis_url, decode_responses=True)
             self.redis.ping()
             logger.info("LockoutService initialized with Redis")
-        except Exception as exc:
+        except Exception:
             # Fail-open: lockout is best-effort. If Redis is down we still let
             # users log in, but we mark the service degraded so /health and
             # monitoring can flag it. Do NOT silently disable the rest of the
@@ -31,7 +32,7 @@ class LockoutService:
         """True if Redis is unavailable and lockout enforcement is disabled."""
         return self._degraded
 
-    def _make_key(self, email: str) -> Tuple[str, str]:
+    def _make_key(self, email: str) -> tuple[str, str]:
         h = hashlib.sha256(email.lower().encode()).hexdigest()
         return "lockout:count:" + h, "lockout:locked:" + h
 
@@ -65,5 +66,6 @@ class LockoutService:
             return
         count_key, lock_key = self._make_key(email)
         self.redis.delete(count_key, lock_key)
+
 
 lockout_service = LockoutService()
