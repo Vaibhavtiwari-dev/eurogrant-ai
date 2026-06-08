@@ -1,35 +1,39 @@
 """Tests for the S3 service layer.
 
 The service has two paths:
-  * `USE_LOCAL_STORAGE=true` (test env)  → writes to a local directory.
-  * `USE_LOCAL_STORAGE=false` (prod)     → talks to AWS via boto3.
+  * `STORAGE_BACKEND=local` → writes to a local directory.
+  * `STORAGE_BACKEND=s3`    → talks to AWS via boto3.
 
 These tests exercise the local path with the real service object and the S3
 path with boto3 mocked.  Both methods are async (Chunk 3 fix) — we await
 them to confirm the async wrapper is in place.
 """
-import os
+
 import io
+import os
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
 
 # Make sure tests run with local storage enabled, regardless of CI env.
-os.environ.setdefault("USE_LOCAL_STORAGE", "true")
+os.environ.setdefault("STORAGE_BACKEND", "local")
 
-from app.services.s3 import S3Service, s3_service  # noqa: E402
+from app.services.s3 import S3Service  # noqa: E402
 
 
 @pytest.mark.asyncio
 async def test_upload_fileobj_local(tmp_path, monkeypatch):
-    monkeypatch.setenv("LOCAL_STORAGE_DIR", str(tmp_path))
-    monkeypatch.setenv("USE_LOCAL_STORAGE", "true")
+    monkeypatch.setenv("STORAGE_BACKEND", "local")
 
     # Rebuild the service so it picks up the new env vars
     svc = S3Service()
+    svc.local_path = tmp_path
 
     # Minimal UploadFile-like shim — S3Service only needs .file
     class FakeUpload:
-        def __init__(self, data: bytes, filename: str = "x.pdf", content_type: str = "application/pdf"):
+        def __init__(
+            self, data: bytes, filename: str = "x.pdf", content_type: str = "application/pdf"
+        ):
             self.file = io.BytesIO(data)
             self.filename = filename
             self.content_type = content_type
@@ -44,27 +48,28 @@ async def test_upload_fileobj_local(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_fileobj_local(tmp_path, monkeypatch):
-    monkeypatch.setenv("LOCAL_STORAGE_DIR", str(tmp_path))
-    monkeypatch.setenv("USE_LOCAL_STORAGE", "true")
+    monkeypatch.setenv("STORAGE_BACKEND", "local")
 
     target = tmp_path / "readme.txt"
     target.write_text("readme-content", encoding="utf-8")
 
     svc = S3Service()
-    data = await svc.get_fileobj(str(target))
+    svc.local_path = tmp_path
+    data = await svc.get_fileobj("readme.txt")
     assert data == b"readme-content"
 
 
 @pytest.mark.asyncio
 async def test_upload_fileobj_s3_path(monkeypatch):
-    monkeypatch.setenv("USE_LOCAL_STORAGE", "false")
-    monkeypatch.setenv("AWS_S3_BUCKET", "test-bucket")
+    monkeypatch.setenv("STORAGE_BACKEND", "s3")
+    monkeypatch.setenv("S3_BUCKET_NAME", "test-bucket")
 
     svc = S3Service()
 
     mock_client = MagicMock()
     # upload_fileobj is blocking; ensure it was called with the fileobj
     with patch.object(svc, "_get_s3_client", return_value=mock_client):
+
         class FakeUpload:
             def __init__(self, data: bytes):
                 self.file = io.BytesIO(data)
@@ -81,8 +86,8 @@ async def test_upload_fileobj_s3_path(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_fileobj_s3_path(monkeypatch):
-    monkeypatch.setenv("USE_LOCAL_STORAGE", "false")
-    monkeypatch.setenv("AWS_S3_BUCKET", "test-bucket")
+    monkeypatch.setenv("STORAGE_BACKEND", "s3")
+    monkeypatch.setenv("S3_BUCKET_NAME", "test-bucket")
 
     svc = S3Service()
 
@@ -99,11 +104,12 @@ async def test_get_fileobj_s3_path(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_upload_fileobj_boto3_error(monkeypatch):
-    """A boto3 ClientError should propagate (not be silently swallowed)."""
-    monkeypatch.setenv("USE_LOCAL_STORAGE", "false")
-    monkeypatch.setenv("AWS_S3_BUCKET", "test-bucket")
+    """A boto3 ClientError should be translated to a safe HTTP error."""
+    monkeypatch.setenv("STORAGE_BACKEND", "s3")
+    monkeypatch.setenv("S3_BUCKET_NAME", "test-bucket")
 
     from botocore.exceptions import ClientError
+    from fastapi import HTTPException
 
     svc = S3Service()
     mock_client = MagicMock()
@@ -112,11 +118,14 @@ async def test_upload_fileobj_boto3_error(monkeypatch):
     )
 
     with patch.object(svc, "_get_s3_client", return_value=mock_client):
+
         class FakeUpload:
             def __init__(self):
                 self.file = io.BytesIO(b"x")
                 self.filename = "x.pdf"
                 self.content_type = "application/pdf"
 
-        with pytest.raises(ClientError):
+        with pytest.raises(HTTPException) as exc_info:
             await svc.upload_fileobj(FakeUpload(), "org_1/x.pdf")
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.detail == "Failed to upload file to storage"
