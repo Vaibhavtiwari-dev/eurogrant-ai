@@ -1,12 +1,15 @@
 import os
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
-from sqlalchemy.orm import Session
-from .. import models, schemas, auth, database
-from ..limiter import limiter
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
+
+from .. import auth, database, models, schemas
+from ..limiter import limiter
 from ..services.lockout import lockout_service
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
 
 @router.post("/register", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
@@ -20,7 +23,7 @@ def register(
     if not master_invite_code:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Registration system is misconfigured. MASTER_INVITE_CODE environment variable is missing."
+            detail="Registration system is misconfigured. MASTER_INVITE_CODE environment variable is missing.",
         )
 
     if user_in.invite_code != master_invite_code:
@@ -32,7 +35,11 @@ def register(
         raise HTTPException(status_code=400, detail="Email already registered")
 
     # Check if organization exists or create new
-    org = db.query(models.Organization).filter(models.Organization.name == user_in.organization_name).first()
+    org = (
+        db.query(models.Organization)
+        .filter(models.Organization.name == user_in.organization_name)
+        .first()
+    )
     if not org:
         org = models.Organization(name=user_in.organization_name)
         db.add(org)
@@ -46,11 +53,13 @@ def register(
         if org_name_normalized not in email_domain and email_domain not in org_name_normalized:
             raise HTTPException(
                 status_code=400,
-                detail="Your email domain does not match this organization. Contact the admin for an invite."
+                detail="Your email domain does not match this organization. Contact the admin for an invite.",
             )
 
     # Check if org already has users to determine role
-    existing_user_count = db.query(models.User).filter(models.User.organization_id == org.id).count()
+    existing_user_count = (
+        db.query(models.User).filter(models.User.organization_id == org.id).count()
+    )
     user_role = models.RoleEnum.ADMIN if existing_user_count == 0 else models.RoleEnum.VIEWER
 
     # Create user
@@ -60,12 +69,13 @@ def register(
         hashed_password=hashed_password,
         full_name=user_in.full_name,
         organization_id=org.id,
-        role=user_role
+        role=user_role,
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     return new_user
+
 
 @router.post("/login", response_model=schemas.Token, response_model_exclude_none=True)
 @limiter.limit("5/minute")
@@ -83,7 +93,10 @@ def login(
 
     # LOW-01: constant-time bcrypt check even when user doesn't exist — prevents timing-oracle enumeration
     if not user:
-        auth.verify_password(user_credentials.password, "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4fSRF6fK.2P8IqGK")
+        auth.verify_password(
+            user_credentials.password,
+            "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4fSRF6fK.2P8IqGK",
+        )
         lockout_service.record_failure(user_credentials.username)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Credentials")
 
@@ -102,16 +115,21 @@ def login(
         value=access_token,
         httponly=True,
         secure=not is_localhost,  # True in production (requires HTTPS)
-        samesite="strict",       # Strict CSRF protection
+        samesite="strict",  # Strict CSRF protection
         max_age=auth.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
     )
 
-    return {"message": "Authentication successful", "token_type": "bearer"}  # SECURITY: JWT delivered exclusively via httpOnly cookie
+    return {
+        "message": "Authentication successful",
+        "token_type": "bearer",
+    }  # SECURITY: JWT delivered exclusively via httpOnly cookie
 
 
 @router.post("/logout")
 def logout(response: Response) -> dict:
     is_localhost = os.getenv("ENVIRONMENT", "development") == "development"
-    response.delete_cookie(key="access_token", httponly=True, samesite="strict", path="/", secure=not is_localhost)
+    response.delete_cookie(
+        key="access_token", httponly=True, samesite="strict", path="/", secure=not is_localhost
+    )
     return {"message": "Successfully logged out"}

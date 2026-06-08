@@ -1,22 +1,20 @@
-from fastapi import APIRouter, Depends, Request
-from sqlalchemy.orm import Session
-from sqlalchemy import or_
-from typing import List
 import json
 import logging
-from .. import models, schemas, database
+
+from fastapi import APIRouter, Depends, Request
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
+
+from .. import database, models, schemas
 from ..auth import get_current_user
-from ..services.vector_db import get_vector_service
+from ..errors import error_response
 from ..limiter import limiter
 from ..services.matching import GrantMatchingService
-from ..errors import error_response
+from ..services.vector_db import get_vector_service
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(
-    prefix="/grants",
-    tags=["Grants Opportunities"]
-)
+router = APIRouter(prefix="/grants", tags=["Grants Opportunities"])
 
 # Constants
 _VECTOR_OVERFETCH_MULTIPLIER = 2
@@ -59,10 +57,10 @@ def _apply_sector_filter(query, search_req: schemas.GrantSearchRequest) -> list[
         except (json.JSONDecodeError, TypeError) as json_err:
             logger.warning(f"Failed to parse sector tags for grant {grant.id}: {json_err}")
             continue
-    return filtered[:search_req.limit]
+    return filtered[: search_req.limit]
 
 
-@router.post("/search", response_model=List[schemas.GrantOut])
+@router.post("/search", response_model=list[schemas.GrantOut])
 @limiter.limit("15/minute")
 def search_grants(
     request: Request,
@@ -82,7 +80,9 @@ def search_grants(
             overfetch = (search_req.limit or 10) * _VECTOR_OVERFETCH_MULTIPLIER
             grant_ids = _run_vector_search(search_req.query, limit=overfetch)
         except Exception as e:
-            logger.warning(f"Semantic search failed or bypassed: {e}. Falling back to standard SQL query.")
+            logger.warning(
+                f"Semantic search failed or bypassed: {e}. Falling back to standard SQL query."
+            )
 
     # 2. SQL Database Retrieval
     query = _build_sql_query(db, search_req, grant_ids)
@@ -94,10 +94,10 @@ def search_grants(
     # Return standard paginated results
     return query.offset(search_req.offset or 0).limit(search_req.limit or 10).all()
 
-@router.get("/matches", response_model=List[schemas.GrantMatchOut])
+
+@router.get("/matches", response_model=list[schemas.GrantMatchOut])
 def get_grant_matches(
-    db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_user)
+    db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)
 ):
     """Get ranked grant opportunities matching the organization's profile.
 
@@ -107,11 +107,12 @@ def get_grant_matches(
     service = GrantMatchingService(db)
     return service.get_matches(current_user)
 
+
 @router.get("/{grant_id}", response_model=schemas.GrantOut)
 def get_grant_by_id(
     grant_id: int,
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user),
 ):
     """Fetch a single grant opportunity by its database ID.
 
@@ -132,4 +133,3 @@ def get_grant_by_id(
             status_code=404,
         )
     return grant
-

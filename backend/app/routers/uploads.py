@@ -1,28 +1,27 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Request
+import logging
+import uuid
+from typing import Any, cast
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy.orm import Session
-from typing import List, cast, Any
-from .. import models, schemas, database
-from ..limiter import limiter
+
+from .. import database, models, schemas
 from ..auth import get_current_user, require_role
+from ..limiter import limiter
 from ..services.s3 import s3_service
 from ..worker import process_company_document
-import uuid
-import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(
-    prefix="/uploads",
-    tags=["uploads"]
-)
+router = APIRouter(prefix="/uploads", tags=["uploads"])
 
 ALLOWED_EXTENSIONS = {"pdf", "docx"}
-MAX_FILE_SIZE = 25 * 1024 * 1024 # 25MB
+MAX_FILE_SIZE = 25 * 1024 * 1024  # 25MB
 
 # Magic-byte signature map — guards against extension spoofing (CWE-434)
 ALLOWED_SIGNATURES = {
     "pdf": [b"%PDF"],
-    "docx": [b"PK"],   # DOCX is a ZIP archive starting with PK
+    "docx": [b"PK"],  # DOCX is a ZIP archive starting with PK
 }
 
 
@@ -60,46 +59,50 @@ def _validate_mime_match(content: bytes, content_type: str, extension: str) -> b
         return False
     return True
 
-@router.get("/documents", response_model=List[schemas.DocumentOut])
+
+@router.get("/documents", response_model=list[schemas.DocumentOut])
 async def list_company_documents(
-    db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_user)
+    db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)
 ):
-    docs = db.query(models.CompanyDocument).filter(
-        models.CompanyDocument.organization_id == current_user.organization_id
-    ).order_by(models.CompanyDocument.created_at.desc()).all()
+    docs = (
+        db.query(models.CompanyDocument)
+        .filter(models.CompanyDocument.organization_id == current_user.organization_id)
+        .order_by(models.CompanyDocument.created_at.desc())
+        .all()
+    )
     return docs
 
-@router.post("/company-document", response_model=schemas.DocumentOut, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/company-document", response_model=schemas.DocumentOut, status_code=status.HTTP_201_CREATED
+)
 @limiter.limit("10/minute")
 async def upload_company_document(
     request: Request,
     file: UploadFile = File(...),
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(require_role([models.RoleEnum.ADMIN, models.RoleEnum.WRITER])),
+    current_user: models.User = Depends(
+        require_role([models.RoleEnum.ADMIN, models.RoleEnum.WRITER])
+    ),
 ) -> models.CompanyDocument:
     # SEC-3: Validate file size
     file.file.seek(0, 2)
     size = file.file.tell()
     file.file.seek(0)
-    
+
     if size > MAX_FILE_SIZE:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File too large. Maximum size is 25MB."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="File too large. Maximum size is 25MB."
         )
 
     # BE-2: Validate extension
     if not file.filename:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Filename is required"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Filename is required")
     extension = get_file_extension(file.filename)
     if extension not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported file extension. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+            detail=f"Unsupported file extension. Allowed: {', '.join(ALLOWED_EXTENSIONS)}",
         )
 
     # HIGH-1: Validate magic bytes match expected signature for extension
@@ -109,14 +112,14 @@ async def upload_company_document(
     if not _validate_file_signature(header, extension):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File content does not match its declared extension (.{extension})"
+            detail=f"File content does not match its declared extension (.{extension})",
         )
 
     # HIGH-1: Validate declared content-type is plausible for the extension
     if file.content_type and not _validate_mime_match(header, file.content_type, extension):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Declared content-type does not match file extension"
+            detail="Declared content-type does not match file extension",
         )
 
     # Generate unique S3 key
@@ -131,7 +134,7 @@ async def upload_company_document(
         file_name=file.filename,
         s3_key=s3_key,
         content_type=file.content_type,
-        status=models.DocumentStatus.PENDING
+        status=models.DocumentStatus.PENDING,
     )
     db.add(new_doc)
     db.commit()

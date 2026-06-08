@@ -1,13 +1,11 @@
-from datetime import datetime, timezone
+import logging
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import List
+from sqlalchemy.orm import Session
 
-import logging
-
-from .. import models, schemas, database
+from .. import database, models, schemas
 from ..auth import get_current_user
 from ..errors import error_response
 from ..worker import generate_proposal_task
@@ -34,7 +32,7 @@ def _usage_limit_for_tier(tier: str) -> int | None:
 
 def _count_monthly_proposals(db: Session, org_id: int) -> int:
     """Count how many proposals this org has created in the current calendar month."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     return (
         db.query(func.count(models.Proposal.id))
@@ -109,11 +107,11 @@ def create_proposal(
     return proposal
 
 
-@router.get("/", response_model=List[schemas.ProposalOut])
+@router.get("/", response_model=list[schemas.ProposalOut])
 def list_proposals(
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(get_current_user),
-) -> List[models.Proposal]:
+) -> list[models.Proposal]:
     """List all proposals belonging to the current user's organisation."""
     proposals = (
         db.query(models.Proposal)
