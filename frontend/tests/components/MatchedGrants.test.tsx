@@ -3,8 +3,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MatchedGrants from '@/components/dashboard/MatchedGrants';
 
-const mockFetch = vi.fn();
-const mockToast = { info: vi.fn(), error: vi.fn(), success: vi.fn() };
+const {mockFetch, mockToast} = vi.hoisted(() => ({
+  mockFetch: vi.fn(),
+  mockToast: {info: vi.fn(), error: vi.fn(), success: vi.fn()},
+}));
 
 vi.mock('@/lib/api', () => ({
   apiFetch: (...args: unknown[]) => mockFetch(...args),
@@ -62,15 +64,13 @@ describe('MatchedGrants', () => {
     });
   });
 
-  it('re-fetches when the refresh button is clicked', async () => {
+  it('re-fetches when refreshKey changes', async () => {
     mockFetch.mockResolvedValue([]);
-    const user = userEvent.setup();
-    render(<MatchedGrants refreshKey={0} />);
+    const {rerender} = render(<MatchedGrants refreshKey={0} />);
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
-    const refreshBtn = screen.getByRole('button', { name: /force matrix re-computation/i });
-    await user.click(refreshBtn);
+    rerender(<MatchedGrants refreshKey={1} />);
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });

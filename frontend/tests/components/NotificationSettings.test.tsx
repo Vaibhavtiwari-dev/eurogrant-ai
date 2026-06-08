@@ -66,7 +66,7 @@ describe('NotificationSettings', () => {
 
     await waitFor(() => {
       const putCall = mockFetch.mock.calls.find(
-        ([, init]: [string, RequestInit]) => (init as { method?: string })?.method === 'PUT'
+        ([, init]) => (init as RequestInit | undefined)?.method === 'PUT'
       );
       expect(putCall).toBeDefined();
     });

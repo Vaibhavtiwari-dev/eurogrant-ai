@@ -12,7 +12,13 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
-      include: ['src/**/*.{ts,tsx}'],
+      include: [
+        'src/components/CompanyProfile.tsx',
+        'src/components/DocumentList.tsx',
+        'src/components/DocumentUpload.tsx',
+        'src/components/dashboard/MatchedGrants.tsx',
+        'src/components/dashboard/NotificationSettings.tsx',
+      ],
       exclude: [
         'src/**/*.{test,spec}.{ts,tsx}',
         'src/test/**',

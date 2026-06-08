@@ -13,7 +13,7 @@ vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, vars?: Record<string, unknown>) =>
     vars ? `${key}:${JSON.stringify(vars)}` : key,
   useFormatter: () => ({
-    dateTime: (_d: Date) => 'formatted-date',
+    dateTime: () => 'formatted-date',
   }),
 }));
 

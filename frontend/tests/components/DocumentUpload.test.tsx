@@ -20,10 +20,10 @@ describe('DocumentUpload', () => {
     mockRefresh.mockReset();
   });
 
-  it('renders the upload form with a file input and submit button', () => {
+  it('renders an accessible file input and upload dropzone', () => {
     render(<DocumentUpload onUploadSuccess={mockRefresh} />);
     expect(screen.getByLabelText(/file/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /upload/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /upload company document/i })).toBeInTheDocument();
   });
 
   it('rejects files that exceed the 25MB limit', async () => {
@@ -31,9 +31,6 @@ describe('DocumentUpload', () => {
     const bigFile = new File(['x'.repeat(26 * 1024 * 1024)], 'big.pdf', { type: 'application/pdf' });
     const input = screen.getByLabelText(/file/i) as HTMLInputElement;
     await userEvent.upload(input, bigFile);
-    const submitBtn = screen.getByRole('button', { name: /upload/i });
-    await userEvent.click(submitBtn);
-    // No fetch should occur for an over-limit file
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
@@ -42,8 +39,6 @@ describe('DocumentUpload', () => {
     const exe = new File(['fake'], 'malware.exe', { type: 'application/octet-stream' });
     const input = screen.getByLabelText(/file/i) as HTMLInputElement;
     await userEvent.upload(input, exe);
-    const submitBtn = screen.getByRole('button', { name: /upload/i });
-    await userEvent.click(submitBtn);
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
@@ -54,18 +49,13 @@ describe('DocumentUpload', () => {
     const pdfFile = new File([pdfContent], 'pitch.pdf', { type: 'application/pdf' });
 
     mockFetch.mockResolvedValueOnce({
-      id: 1,
-      file_name: 'pitch.pdf',
-      status: 'pending',
-      created_at: '2026-06-01T00:00:00Z',
+      ok: true,
     });
 
     const user = userEvent.setup();
     render(<DocumentUpload onUploadSuccess={mockRefresh} />);
     const input = screen.getByLabelText(/file/i) as HTMLInputElement;
     await user.upload(input, pdfFile);
-    const submitBtn = screen.getByRole('button', { name: /upload/i });
-    await user.click(submitBtn);
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalled();
