@@ -16,17 +16,17 @@ interface RAGProgressProps {
   pipelines: Pipeline[];
 }
 
+const STATUS_STYLES: Record<string, { color: string; progressColor: string }> = {
+  GENERATING: { color: "text-copper bg-copper/10", progressColor: "bg-copper" },
+  READY: { color: "text-emerald-light bg-emerald/10", progressColor: "bg-emerald-light" },
+};
+const DEFAULT_STATUS_STYLE = { color: "text-on-surface-variant bg-surface-variant/50", progressColor: "bg-on-surface-variant/30" };
+
+function getStatusStyles(status: string): { color: string; progressColor: string } {
+  return STATUS_STYLES[status] ?? DEFAULT_STATUS_STYLE;
+}
+
 export default function RAGProgress({ pipelines }: RAGProgressProps) {
-  const getStatusStyles = (status: string) => {
-    switch (status) {
-      case "GENERATING":
-        return { color: "text-copper bg-copper/10", progressColor: "bg-copper" };
-      case "READY":
-        return { color: "text-emerald-light bg-emerald/10", progressColor: "bg-emerald-light" };
-      default:
-        return { color: "text-on-surface-variant bg-surface-variant/50", progressColor: "bg-on-surface-variant/30" };
-    }
-  };
 
   return (
     <div className="premium-card p-10 space-y-10">

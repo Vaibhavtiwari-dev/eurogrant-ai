@@ -34,8 +34,8 @@ export default function HotMatches({ matches }: HotMatchesProps) {
           </div>
         ) : (
           matches.map((item, i) => (
-            <motion.div 
-              key={i}
+            <motion.div
+              key={`${item.title}-${item.score}`}
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.1 }}

@@ -72,9 +72,12 @@ export default function Header({ user, setIsSidebarOpen }: HeaderProps) {
         >
           <div className="w-10 h-10 rounded-full bg-emerald/10 border border-emerald/20 flex items-center justify-center transition-all group-hover:border-emerald-light/50 overflow-hidden">
              {/* eslint-disable-next-line @next/next/no-img-element */}
-             <img 
-               src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" 
+             <img
+               src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
                alt={user?.full_name || "User Profile"}
+               width={40}
+               height={40}
+               loading="lazy"
                className="w-full h-full object-cover"
              />
           </div>

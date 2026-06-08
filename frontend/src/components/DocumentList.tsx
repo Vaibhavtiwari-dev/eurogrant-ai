@@ -100,34 +100,33 @@ export default function DocumentList({ refreshKey }: DocumentListProps) {
   );
 }
 
+const DOC_STATUS_STYLES: Record<string, { border: string; tag: string; match: string }> = {
+  processed: {
+    border: "border-l-emerald-500",
+    tag: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+    match: "98% Match",
+  },
+  failed: {
+    border: "border-l-error",
+    tag: "bg-error/20 text-error border-error/30",
+    match: "Failed",
+  },
+};
+const DEFAULT_DOC_STYLE = {
+  border: "border-l-sky-500",
+  tag: "bg-sky-500/20 text-sky-400 border-sky-500/30",
+  match: "Analyzing...",
+};
+
+function getStatusStyles(status: string): { border: string; tag: string; match: string } {
+  return DOC_STATUS_STYLES[status] ?? DEFAULT_DOC_STYLE;
+}
+
 function DocumentCard({ doc }: { doc: Document }) {
   const t = useTranslations("DocumentList");
   const format = useFormatter();
 
-  const getStatusStyles = () => {
-    switch (doc.status) {
-      case "processed":
-        return {
-          border: "border-l-emerald-500",
-          tag: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-          match: "98% Match"
-        };
-      case "failed":
-        return {
-          border: "border-l-error",
-          tag: "bg-error/20 text-error border-error/30",
-          match: "Failed"
-        };
-      default:
-        return {
-          border: "border-l-sky-500",
-          tag: "bg-sky-500/20 text-sky-400 border-sky-500/30",
-          match: "Analyzing..."
-        };
-    }
-  };
-
-  const styles = getStatusStyles();
+  const styles = getStatusStyles(doc.status);
 
   return (
     <div className={`glass-card rounded-xl p-6 hover:translate-x-2 transition-transform duration-500 cursor-pointer border-l-4 ${styles.border} group`} role="listitem">

@@ -6,6 +6,7 @@ import { containerVariants, itemVariants } from "@/lib/animations";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Header from "@/components/dashboard/Header";
 import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "@/i18n/routing";
 import { apiFetch } from "@/lib/api";
 import { FileText, Loader2, AlertCircle, ArrowUpRight, CheckCircle2, RefreshCw } from "lucide-react";
 
@@ -22,6 +23,7 @@ interface ProposalMock {
 
 export default function ProposalsPage() {
   const { user, loading, logout } = useAuth();
+  const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [proposals, setProposals] = useState<ProposalMock[]>([]);
@@ -126,8 +128,8 @@ export default function ProposalsPage() {
                 Manage, edit, and track your AI-drafted European grant proposal applications.
               </p>
             </div>
-            <button 
-              onClick={() => window.location.reload()}
+            <button
+              onClick={() => router.refresh()}
               className="px-4 py-2.5 rounded-lg bg-surface hover:bg-surface-variant border border-white/5 hover:border-white/10 text-on-surface-variant hover:text-on-surface text-xs font-semibold flex items-center gap-2 transition-all active:scale-95 shadow"
             >
               <RefreshCw size={14} /> Refresh Workspace
@@ -147,8 +149,8 @@ export default function ProposalsPage() {
               <p className="text-on-surface-variant max-w-sm mx-auto text-xs leading-relaxed mb-8">
                 To begin generating a structured EIC or EuroGrant proposal, upload your company documents on the main Dashboard page.
               </p>
-              <button 
-                onClick={() => window.location.href = `/${window.location.pathname.split('/')[1]}/dashboard`}
+              <button
+                onClick={() => router.push("/dashboard")}
                 className="px-6 py-3 bg-emerald hover:bg-emerald-light text-surface font-semibold rounded-lg transition-all shadow-md active:scale-95 flex items-center gap-2 mx-auto"
               >
                 Go to Dashboard

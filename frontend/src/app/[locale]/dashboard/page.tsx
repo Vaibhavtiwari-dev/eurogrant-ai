@@ -125,8 +125,12 @@ export default function DashboardPage() {
       >
         <div className="max-w-7xl mx-auto">
           {/* Tab Navigation Menu */}
-          <div className="flex border-b border-white/5 mb-10 gap-8">
+          <div className="flex border-b border-white/5 mb-10 gap-8" role="tablist" aria-label="Dashboard sections">
             <button
+              role="tab"
+              aria-selected={activeTab === "overview"}
+              aria-controls="panel-overview"
+              id="tab-overview"
               onClick={() => setActiveTab("overview")}
               className={`pb-4 text-xs font-bold uppercase tracking-widest transition-all relative ${
                 activeTab === "overview" ? "text-emerald-light font-black" : "text-on-surface-variant hover:text-white"
@@ -138,6 +142,10 @@ export default function DashboardPage() {
               )}
             </button>
             <button
+              role="tab"
+              aria-selected={activeTab === "matches"}
+              aria-controls="panel-matches"
+              id="tab-matches"
               onClick={() => setActiveTab("matches")}
               className={`pb-4 text-xs font-bold uppercase tracking-widest transition-all relative ${
                 activeTab === "matches" ? "text-emerald-light font-black" : "text-on-surface-variant hover:text-white"
@@ -149,6 +157,10 @@ export default function DashboardPage() {
               )}
             </button>
             <button
+              role="tab"
+              aria-selected={activeTab === "settings"}
+              aria-controls="panel-settings"
+              id="tab-settings"
               onClick={() => setActiveTab("settings")}
               className={`pb-4 text-xs font-bold uppercase tracking-widest transition-all relative ${
                 activeTab === "settings" ? "text-emerald-light font-black" : "text-on-surface-variant hover:text-white"
@@ -162,7 +174,7 @@ export default function DashboardPage() {
           </div>
 
           {activeTab === "overview" && (
-            <div className="grid grid-cols-12 gap-10">
+            <div className="grid grid-cols-12 gap-10" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">
               <div className="col-span-12 lg:col-span-8 space-y-12">
                 <StatsOverview variants={itemVariants} stats={overview?.stats} />
                 
@@ -188,13 +200,13 @@ export default function DashboardPage() {
           )}
 
           {activeTab === "matches" && (
-            <motion.div variants={itemVariants}>
+            <motion.div variants={itemVariants} role="tabpanel" id="panel-matches" aria-labelledby="tab-matches">
               <MatchedGrants refreshKey={refreshKey} />
             </motion.div>
           )}
 
           {activeTab === "settings" && (
-            <motion.div variants={itemVariants}>
+            <motion.div variants={itemVariants} role="tabpanel" id="panel-settings" aria-labelledby="tab-settings">
               <NotificationSettings />
             </motion.div>
           )}
