@@ -1,29 +1,30 @@
-import pdfplumber
-import docx
-import re
-from io import BytesIO
 import logging
 import os
+import re
+from io import BytesIO
+
+import docx
+import pdfplumber
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
+
 def redact_pii(text: str) -> str:
     # Redact emails — handles standard and Unicode domains
-    text = re.sub(
-        r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', '[REDACTED_EMAIL]', text
-    )
+    text = re.sub(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", "[REDACTED_EMAIL]", text)
     # Redact phone numbers — international formats: +XX XXX XXXX, (XXX) XXX-XXXX, etc.
     phone_pattern = (
-        r'(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}'
-        r'|\+?\d{1,4}[-.\s]?\d{2,4}[-.\s]?\d{2,4}[-.\s]?\d{2,4}'  # international 10+
+        r"(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}"
+        r"|\+?\d{1,4}[-.\s]?\d{2,4}[-.\s]?\d{2,4}[-.\s]?\d{2,4}"  # international 10+
     )
-    text = re.sub(phone_pattern, '[REDACTED_PHONE]', text)
+    text = re.sub(phone_pattern, "[REDACTED_PHONE]", text)
     # Redact IBANs — generic pattern for European/international bank accounts
-    text = re.sub(r'\b[A-Z]{2}\d{2}[A-Z0-9]{4,28}\b', '[REDACTED_IBAN]', text)
+    text = re.sub(r"\b[A-Z]{2}\d{2}[A-Z0-9]{4,28}\b", "[REDACTED_IBAN]", text)
     # Redact credit-card-like patterns (matches most 13–19 digit sequences with separators)
-    text = re.sub(r'\b\d{4}[-.\s]?\d{4}[-.\s]?\d{4}[-.\s]?\d{1,7}\b', '[REDACTED_CARD]', text)
+    text = re.sub(r"\b\d{4}[-.\s]?\d{4}[-.\s]?\d{4}[-.\s]?\d{1,7}\b", "[REDACTED_CARD]", text)
     return text
+
 
 class ExtractionService:
     def extract_text(self, file_content: bytes, content_type: str) -> str:
@@ -64,11 +65,10 @@ class ExtractionService:
         if not api_key:
             logger.warning("OPENAI_API_KEY not set. Returning a mock explanation.")
             return "This grant is highly compatible with your organization's focus on innovative technology development and regional expansion."
-            
+
         try:
             client = OpenAI(
-                api_key=api_key,
-                base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+                api_key=api_key, base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
             )
             # Sanitize user inputs to prevent tag-injection and prompt injection
             safe_org = org_profile.replace("<", "&lt;").replace(">", "&gt;")
@@ -86,11 +86,14 @@ class ExtractionService:
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "You are a concise, helpful assistant for grant matching."},
-                    {"role": "user", "content": prompt}
+                    {
+                        "role": "system",
+                        "content": "You are a concise, helpful assistant for grant matching.",
+                    },
+                    {"role": "user", "content": prompt},
                 ],
                 max_tokens=100,
-                temperature=0.7
+                temperature=0.7,
             )
             content = response.choices[0].message.content or ""
             explanation = content.strip()
@@ -101,5 +104,6 @@ class ExtractionService:
         except Exception as e:
             logger.error(f"Error generating AI match explanation: {e}")
             return "This grant matches your organization's core technologies and strategic sector focus."
+
 
 extraction_service = ExtractionService()
