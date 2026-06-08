@@ -1,9 +1,11 @@
+from datetime import UTC, datetime
+from unittest.mock import MagicMock, patch
+
 import pytest
-from datetime import datetime, timezone
-from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
-from app.main import app
+
 from app import models
+from app.main import app
 
 client = TestClient(app)
 
@@ -11,6 +13,7 @@ client = TestClient(app)
 # The patch targets used throughout — defined once for consistency
 CELERY_DELAY_PATH = "app.routers.proposals.generate_proposal_task.delay"
 OPENAI_CLIENT_PATH = "app.services.proposal_gen._get_openai_client"
+
 
 # Helper for often-used patching kwargs
 def _patch_openai():
@@ -20,6 +23,7 @@ def _patch_openai():
 # ---------------------------------------------------------------------------
 # Router tests — POST /proposals
 # ---------------------------------------------------------------------------
+
 
 def test_create_proposal_unauthorized():
     """POST /api/v1/proposals/ without auth returns 401."""
@@ -34,7 +38,7 @@ def test_create_proposal_success(db_session, authenticated_client, test_user):
         external_id="PH10-001",
         title="Phase 10 Test Grant",
         description="A grant to test proposal generation.",
-        deadline=datetime(2027, 1, 1, tzinfo=timezone.utc),
+        deadline=datetime(2027, 1, 1, tzinfo=UTC),
         funding_range="€10,000 - €50,000",
         eligibility_criteria="SMEs",
         source_url="https://example.com/ph10",
@@ -79,7 +83,7 @@ def test_create_proposal_usage_limit(db_session, authenticated_client, test_user
         external_id="PH10-LIMIT",
         title="Limit Test Grant",
         description="Testing usage limits.",
-        deadline=datetime(2027, 2, 1, tzinfo=timezone.utc),
+        deadline=datetime(2027, 2, 1, tzinfo=UTC),
         funding_range="€5,000",
         eligibility_criteria="SMEs",
         source_url="https://example.com/limit",
@@ -90,7 +94,7 @@ def test_create_proposal_usage_limit(db_session, authenticated_client, test_user
     db_session.flush()
 
     # Growth tier = 5/month. Create 5 proposals to hit the limit.
-    for i in range(5):
+    for _i in range(5):
         p = models.Proposal(
             organization_id=test_user.organization_id,
             grant_id=grant.id,
@@ -110,7 +114,11 @@ def test_create_proposal_usage_limit(db_session, authenticated_client, test_user
 def test_create_proposal_usage_limit_agency_unlimited(db_session, authenticated_client, test_user):
     """Agency-tier organisations have no monthly limit."""
     # Bump the org to agency
-    org = db_session.query(models.Organization).filter(models.Organization.id == test_user.organization_id).first()
+    org = (
+        db_session.query(models.Organization)
+        .filter(models.Organization.id == test_user.organization_id)
+        .first()
+    )
     org.subscription_tier = "agency"
     db_session.commit()
 
@@ -118,7 +126,7 @@ def test_create_proposal_usage_limit_agency_unlimited(db_session, authenticated_
         external_id="PH10-AGENCY",
         title="Agency Grant",
         description="Unlimited proposals for agency tier.",
-        deadline=datetime(2027, 3, 1, tzinfo=timezone.utc),
+        deadline=datetime(2027, 3, 1, tzinfo=UTC),
         funding_range="€100,000",
         eligibility_criteria="SMEs",
         source_url="https://example.com/agency",
@@ -140,6 +148,7 @@ def test_create_proposal_usage_limit_agency_unlimited(db_session, authenticated_
 # Router tests — GET /proposals
 # ---------------------------------------------------------------------------
 
+
 def test_list_proposals_unauthorized():
     """GET /api/v1/proposals/ without auth returns 401."""
     response = client.get("/api/v1/proposals/")
@@ -152,7 +161,7 @@ def test_list_proposals(db_session, authenticated_client, test_user):
         external_id="PH10-LIST",
         title="List Test Grant",
         description="Testing proposal listing.",
-        deadline=datetime(2027, 4, 1, tzinfo=timezone.utc),
+        deadline=datetime(2027, 4, 1, tzinfo=UTC),
         funding_range="€10,000",
         eligibility_criteria="SMEs",
         source_url="https://example.com/list",
@@ -187,7 +196,7 @@ def test_list_proposals_scoped_to_org(db_session, authenticated_client, test_use
         external_id="PH10-SCOPE",
         title="Scope Test Grant",
         description="Testing org scoping.",
-        deadline=datetime(2027, 5, 1, tzinfo=timezone.utc),
+        deadline=datetime(2027, 5, 1, tzinfo=UTC),
         funding_range="€10,000",
         eligibility_criteria="SMEs",
         source_url="https://example.com/scope",
@@ -227,13 +236,14 @@ def test_list_proposals_scoped_to_org(db_session, authenticated_client, test_use
 # Router tests — GET /proposals/{id}
 # ---------------------------------------------------------------------------
 
+
 def test_get_proposal(db_session, authenticated_client, test_user):
     """GET /api/v1/proposals/{id} returns a single proposal."""
     grant = models.Grant(
         external_id="PH10-GET",
         title="Get Test Grant",
         description="Testing single proposal retrieval.",
-        deadline=datetime(2027, 6, 1, tzinfo=timezone.utc),
+        deadline=datetime(2027, 6, 1, tzinfo=UTC),
         funding_range="€10,000",
         eligibility_criteria="SMEs",
         source_url="https://example.com/get",
@@ -273,7 +283,7 @@ def test_get_proposal_wrong_org(db_session, authenticated_client, test_user):
         external_id="PH10-WRONG",
         title="Wrong Org Test Grant",
         description="Testing org isolation for single proposal.",
-        deadline=datetime(2027, 7, 1, tzinfo=timezone.utc),
+        deadline=datetime(2027, 7, 1, tzinfo=UTC),
         funding_range="€10,000",
         eligibility_criteria="SMEs",
         source_url="https://example.com/wrong",
@@ -302,9 +312,11 @@ def test_get_proposal_wrong_org(db_session, authenticated_client, test_user):
 # Service tests — ProposalService.generate_initial_draft
 # ---------------------------------------------------------------------------
 
+
 def test_proposal_service_missing_grant(db_session):
     """ProposalService raises ValueError when the grant does not exist."""
     from app.services.proposal_gen import ProposalService
+
     service = ProposalService()
     with pytest.raises(ValueError, match="Grant with id 99999 not found"):
         service.generate_initial_draft(db=db_session, org_id=1, grant_id=99999)
@@ -319,7 +331,7 @@ def test_proposal_service_success(db_session, test_user):
         external_id="PH10-SVC",
         title="Service Test Grant",
         description="A grant for testing the ProposalService.",
-        deadline=datetime(2027, 8, 1, tzinfo=timezone.utc),
+        deadline=datetime(2027, 8, 1, tzinfo=UTC),
         funding_range="€50,000",
         eligibility_criteria="SMEs with AI focus",
         scoring_rubric="1. Innovation (30pts)\n2. Impact (30pts)\n3. Team (20pts)\n4. Budget (20pts)",
@@ -334,7 +346,7 @@ def test_proposal_service_success(db_session, test_user):
     # Mock the LLM call to avoid actual API charges
     mock_content = (
         '{"proposal": "# Proposal\\n\\n## 1. Innovation\\nWe use AI to...\\n\\n'
-        '## 2. Impact\\nExpected outcomes...\\n\\n'
+        "## 2. Impact\\nExpected outcomes...\\n\\n"
         '## 3. Budget\\nTotal: €50,000", "compatibility_score": 0.82}'
     )
 
@@ -365,7 +377,7 @@ def test_proposal_service_llm_failure(db_session, test_user):
         external_id="PH10-FAIL",
         title="Failure Test Grant",
         description="Testing LLM failure handling.",
-        deadline=datetime(2027, 9, 1, tzinfo=timezone.utc),
+        deadline=datetime(2027, 9, 1, tzinfo=UTC),
         funding_range="€10,000",
         eligibility_criteria="SMEs",
         source_url="https://example.com/fail",

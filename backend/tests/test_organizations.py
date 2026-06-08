@@ -1,5 +1,4 @@
-import pytest
-from app import models, schemas
+from app import models
 
 
 def test_get_my_organization(authenticated_client, test_user):
@@ -13,9 +12,11 @@ def test_get_my_organization(authenticated_client, test_user):
 
 def test_update_my_organization(authenticated_client, test_user, db_session):
     # Sanity check pre-update
-    pre = db_session.query(models.Organization).filter(
-        models.Organization.id == test_user.organization_id
-    ).first()
+    pre = (
+        db_session.query(models.Organization)
+        .filter(models.Organization.id == test_user.organization_id)
+        .first()
+    )
     assert pre is not None
 
     response = authenticated_client.put(
@@ -34,9 +35,11 @@ def test_update_my_organization(authenticated_client, test_user, db_session):
 
     # The DB row should reflect the new values
     db_session.expire_all()
-    post = db_session.query(models.Organization).filter(
-        models.Organization.id == test_user.organization_id
-    ).first()
+    post = (
+        db_session.query(models.Organization)
+        .filter(models.Organization.id == test_user.organization_id)
+        .first()
+    )
     assert post.sector == "EnergyTech"
 
 
@@ -88,6 +91,5 @@ def test_get_dashboard_overview_with_documents(authenticated_client, test_user, 
     assert response.status_code == 200
     data = response.json()
     assert data["stats"]["active_high_matches"] == 3
-    # When there are docs, placeholder pipelines + hot_matches surface
-    assert len(data["pipelines"]) >= 1
-    assert len(data["hot_matches"]) >= 1
+    assert data["pipelines"] == []
+    assert data["hot_matches"] == []
