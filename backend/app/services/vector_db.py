@@ -52,7 +52,12 @@ class VectorService:
                 )
                 logger.info(f"Created new Pinecone index: {self.index_name}. Waiting for readiness...")
                 import time
-                time.sleep(5)
+                # Poll for readiness instead of fixed sleep (M11)
+                for _attempt in range(10):
+                    time.sleep(1)
+                    stats = self.pc.Index(self.index_name).describe_index_stats()
+                    if stats.get("total_vector_count", 0) > 0:
+                        break
         except Exception as e:
             logger.warning(f"Could not check or create Pinecone index: {e}")
 

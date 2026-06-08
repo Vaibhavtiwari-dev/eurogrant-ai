@@ -7,6 +7,10 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..errors import error_response
 from ..services.extraction import extraction_service
+
+# Fallback scoring constants for SQL-based matching path
+BASE_FALLBACK_SCORE = 0.88
+FALLBACK_SCORE_DECAY = 0.05
 from ..services.vector_db import get_vector_service
 
 logger = logging.getLogger(__name__)
@@ -63,8 +67,7 @@ class GrantMatchingService:
         )
         if not results:
             results = self._fallback_results(org)
-        results.sort(key=lambda x: x.score, reverse=True)
-        return results
+        return sorted(results, key=lambda x: x.score, reverse=True)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -112,6 +115,26 @@ class GrantMatchingService:
         if org.countries_of_operation:
             parts.append(f"Countries: {org.countries_of_operation}")
         return " | ".join(parts) if parts else "General startup business grant"
+
+    @staticmethod
+    def _format_org_profile(org: models.Organization) -> str:
+        """Format an organisation's profile into a human-readable string.
+
+        Args:
+            org: The organisation whose profile to format.
+
+        Returns:
+            A comma-separated description of the organisation's sector,
+            technologies, and countries of operation.
+        """
+        parts = []
+        if org.sector:
+            parts.append(f"Sector: {org.sector}")
+        if org.core_technologies:
+            parts.append(f"Technologies: {org.core_technologies}")
+        if org.countries_of_operation:
+            parts.append(f"Countries: {org.countries_of_operation}")
+        return ", ".join(parts) if parts else "General startup business grant"
 
     def _get_vector_matches(self, query_str: str) -> List[Dict[str, Any]]:
         """Query the vector database for semantically similar grants.
@@ -178,10 +201,7 @@ class GrantMatchingService:
             .all()
         }
 
-        org_profile_text = (
-            f"Sector: {org.sector}, Technologies: {org.core_technologies}, "
-            f"Countries: {org.countries_of_operation}"
-        )
+        org_profile_text = self._format_org_profile(org)
         results: List[schemas.GrantMatchOut] = []
 
         for match in matches_data:
@@ -246,14 +266,11 @@ class GrantMatchingService:
             ).all()
         }
 
-        org_profile_text = (
-            f"Sector: {org.sector}, Technologies: {org.core_technologies}, "
-            f"Countries: {org.countries_of_operation}"
-        )
+        org_profile_text = self._format_org_profile(org)
         results: List[schemas.GrantMatchOut] = []
 
         for i, grant in enumerate(grants):
-            score = 0.88 - (i * 0.05)
+            score = BASE_FALLBACK_SCORE - (i * FALLBACK_SCORE_DECAY)
             if score < org.match_threshold:
                 continue
 

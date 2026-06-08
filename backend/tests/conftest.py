@@ -57,7 +57,13 @@ def override_get_db():
         if db is not None:
             db.close()
 
-app.dependency_overrides[get_db] = override_get_db
+
+@pytest.fixture(autouse=True)
+def _setup_db_override():
+    """Set and tear down the database dependency override for every test."""
+    app.dependency_overrides[get_db] = override_get_db
+    yield
+    app.dependency_overrides.pop(get_db, None)
 
 @pytest.fixture
 def mock_s3():
