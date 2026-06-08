@@ -1,6 +1,6 @@
+from fastapi import Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from fastapi import Request
 
 # Trusted proxy IPs — configure these to match your reverse-proxy (nginx/cloudflare/traefik)
 # Only IPs in this set will have their X-Forwarded-For header used.

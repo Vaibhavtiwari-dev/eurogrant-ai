@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import HTTPException, status
 
@@ -6,7 +6,7 @@ from fastapi import HTTPException, status
 def error_response(
     code: str,
     message: str,
-    details: Optional[Dict[str, Any]] = None,
+    details: dict[str, Any] | None = None,
     status_code: int = status.HTTP_404_NOT_FOUND,
 ) -> None:
     """Raise an HTTPException with a consistent JSON error envelope.

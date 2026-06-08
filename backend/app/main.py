@@ -1,17 +1,22 @@
 import os
 import secrets
-from fastapi import FastAPI, Depends, APIRouter, Request, HTTPException
+
+from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded as RateLimitExceededExc
-from starlette.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy import text
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import models, schemas
-from .routers import auth as auth_router, uploads as uploads_router, organizations as organizations_router, grants as grants_router, proposals as proposals_router
 from .auth import get_current_user
 from .limiter import limiter
-from fastapi.responses import JSONResponse
+from .routers import auth as auth_router
+from .routers import grants as grants_router
+from .routers import organizations as organizations_router
+from .routers import proposals as proposals_router
+from .routers import uploads as uploads_router
 
 app = FastAPI(title="EuroGrant AI API")
 app.state.limiter = limiter
@@ -30,6 +35,7 @@ app.add_middleware(
     allowed_hosts=_allowed_hosts,
 )
 
+
 # Security: Security Headers Middleware
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next):
@@ -39,12 +45,15 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'"
+    )
     response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=(), payment=()"
     response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
     response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
     return response
+
 
 # CSRF Token Middleware — sets csrf_token cookie on GET requests if not already present
 @app.middleware("http")
@@ -62,6 +71,7 @@ async def csrf_token_middleware(request: Request, call_next):
         )
     return response
 
+
 # CSRF Protection Middleware — validates Origin on state-changing requests
 @app.middleware("http")
 async def csrf_protection_middleware(request: Request, call_next):
@@ -75,15 +85,22 @@ async def csrf_protection_middleware(request: Request, call_next):
         if origin:
             # Strip trailing slash for comparison
             if origin.rstrip("/") not in {o.rstrip("/") for o in allowed_origins}:
-                return JSONResponse(status_code=403, content={"detail": "CSRF validation failed: unauthorized origin"})
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "CSRF validation failed: unauthorized origin"},
+                )
         # If no Origin but Referer is present, validate it too (defence-in-depth)
         elif referer:
             # Extract scheme+host from referer and compare
             from urllib.parse import urlparse
+
             ref_parsed = urlparse(referer)
             ref_origin = f"{ref_parsed.scheme}://{ref_parsed.netloc}"
             if ref_origin.rstrip("/") not in {o.rstrip("/") for o in allowed_origins}:
-                return JSONResponse(status_code=403, content={"detail": "CSRF validation failed: unauthorized referer"})
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "CSRF validation failed: unauthorized referer"},
+                )
         else:
             csrf_cookie = request.cookies.get("csrf_token")
             csrf_header = request.headers.get("X-CSRF-Token")
@@ -91,6 +108,7 @@ async def csrf_protection_middleware(request: Request, call_next):
                 pass  # SameSite=Strict protects cookie auth; allow through
     response = await call_next(request)
     return response
+
 
 # Configure CORS
 origins = [
@@ -119,6 +137,7 @@ api_v1_router.include_router(proposals_router.router)
 # Include versioned router in app
 app.include_router(api_v1_router)
 
+
 # Health Check Endpoint
 @app.get("/health")
 async def health_check():
@@ -130,6 +149,7 @@ async def health_check():
     }
     try:
         from .database import SessionLocal
+
         db = SessionLocal()
         db.execute(text("SELECT 1"))
         db.close()
@@ -139,6 +159,7 @@ async def health_check():
         health_status["status"] = "degraded"
     try:
         from redis import Redis as RedisClient
+
         r = RedisClient.from_url(os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0"))
         r.ping()
         r.close()
@@ -150,6 +171,7 @@ async def health_check():
     # not silently disable account-lockout visibility on the /health endpoint.
     try:
         from .services.lockout import lockout_service
+
         if lockout_service.is_degraded():
             health_status["lockout_degraded"] = True
             health_status["status"] = "degraded"
@@ -157,13 +179,16 @@ async def health_check():
         pass
     status_code = 200 if health_status["status"] == "healthy" else 503
     from fastapi.responses import JSONResponse
+
     return JSONResponse(content=health_status, status_code=status_code)
+
 
 # Global/Unversioned Routes
 @app.get("/")
 @limiter.limit("5/minute")
 async def root(request: Request):
     return {"message": "Welcome to EuroGrant AI API"}
+
 
 @app.get("/api/v1/users/me", response_model=schemas.UserOut)
 async def read_users_me(current_user: models.User = Depends(get_current_user)):
