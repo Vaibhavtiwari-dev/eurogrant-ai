@@ -38,26 +38,11 @@ async def get_dashboard_overview(
         total_pipeline_value=1.5 * doc_count # Placeholder multiplier
     )
     
-    # 2. Pipelines (Placeholder until proposal generation is live)
-    pipelines = [
-        schemas.PipelineOut(
-            id="EIC-2024-ACCELERATOR-01",
-            title="Project GreenLithium • €2.5M Request",
-            status="GENERATING",
-            progress=65,
-            subtext="Context Assembling (RAG)"
-        )
-    ] if doc_count > 0 else []
-    
-    # 3. Hot Matches (Placeholder until semantic matching is live)
-    hot_matches = [
-        schemas.MatchOut(
-            title="Innovate UK: Smart Sustainable Manufacturing",
-            desc="Direct alignment with your recent portfolio updates regarding IoT...",
-            score=98,
-            time="2H AGO"
-        )
-    ] if doc_count > 0 else []
+    # 2. Pipelines (returns empty until proposal generation is live)
+    pipelines: list[schemas.PipelineOut] = []
+
+    # 3. Hot Matches (returns empty until semantic matching is live)
+    hot_matches: list[schemas.MatchOut] = []
     
     return schemas.DashboardOverviewOut(
         stats=stats,
