@@ -10,7 +10,6 @@ from ..services.vector_db import get_vector_service
 from ..limiter import limiter
 from ..services.matching import GrantMatchingService
 from ..errors import error_response
-from typing import List, Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,65 +18,81 @@ router = APIRouter(
     tags=["Grants Opportunities"]
 )
 
+# Constants
+_VECTOR_OVERFETCH_MULTIPLIER = 2
+
+
+def _run_vector_search(query: str, limit: int) -> list[int]:
+    """Query the vector service and return matching grant IDs."""
+    return get_vector_service().query_grants(query, limit=limit)
+
+
+def _build_sql_query(db: Session, search_req: schemas.GrantSearchRequest, grant_ids: list[int]):
+    """Build the SQLAlchemy query for grant search with optional vector IDs."""
+    query = db.query(models.Grant)
+
+    if grant_ids:
+        query = query.filter(models.Grant.id.in_(grant_ids))
+    elif search_req.query:
+        search_pattern = f"%{search_req.query}%"
+        query = query.filter(
+            or_(
+                models.Grant.title.ilike(search_pattern),
+                models.Grant.description.ilike(search_pattern),
+                models.Grant.eligibility_criteria.ilike(search_pattern),
+            )
+        )
+
+    return query
+
+
+def _apply_sector_filter(query, search_req: schemas.GrantSearchRequest) -> list[models.Grant]:
+    """Fetch results and filter by sector tags in memory."""
+    overfetch_limit = (search_req.limit or 10) * _VECTOR_OVERFETCH_MULTIPLIER
+    all_results = query.offset(search_req.offset or 0).limit(overfetch_limit).all()
+    filtered = []
+    for grant in all_results:
+        try:
+            tags = json.loads(grant.sector_tags) if grant.sector_tags else []
+            if any(sec in tags for sec in search_req.sectors):
+                filtered.append(grant)
+        except (json.JSONDecodeError, TypeError) as json_err:
+            logger.warning(f"Failed to parse sector tags for grant {grant.id}: {json_err}")
+            continue
+    return filtered[:search_req.limit]
+
+
 @router.post("/search", response_model=List[schemas.GrantOut])
 @limiter.limit("15/minute")
 def search_grants(
     request: Request,
     search_req: schemas.GrantSearchRequest,
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_user)
-):
+    current_user: models.User = Depends(get_current_user),
+) -> list[models.Grant]:
     """
     Search public grant opportunities. Integrates hybrid semantic vector search
     with SQL fallback to guarantee seamless offline local development.
     """
-    grant_ids = []
-    
+    grant_ids: list[int] = []
+
     # 1. Try Pinecone Vector Search if a search query is present
     if search_req.query:
         try:
-            grant_ids = get_vector_service().query_grants(search_req.query, limit=(search_req.limit or 10) * 2)
+            overfetch = (search_req.limit or 10) * _VECTOR_OVERFETCH_MULTIPLIER
+            grant_ids = _run_vector_search(search_req.query, limit=overfetch)
         except Exception as e:
             logger.warning(f"Semantic search failed or bypassed: {e}. Falling back to standard SQL query.")
 
     # 2. SQL Database Retrieval
-    query = db.query(models.Grant)
-    
-    if grant_ids:
-        # Load specific semantic matches
-        query = query.filter(models.Grant.id.in_(grant_ids))
-    elif search_req.query:
-        # Fallback: SQL text matching if semantic search returned nothing/was offline
-        search_pattern = f"%{search_req.query}%"
-        query = query.filter(
-            or_(
-                models.Grant.title.ilike(search_pattern),
-                models.Grant.description.ilike(search_pattern),
-                models.Grant.eligibility_criteria.ilike(search_pattern)
-            )
-        )
-        
+    query = _build_sql_query(db, search_req, grant_ids)
+
     # 3. Apply Sector/Tag Filters (if provided)
-    # The database sector_tags column holds a JSON serialized string (e.g. '["GreenTech", "SaaS"]')
     if search_req.sectors:
-        # SQLite / Postgres compatible JSON array lookup fallback:
-        # We fetch extra items and filter them in memory to ensure complete compatibility.
-        all_results = query.offset(search_req.offset or 0).limit((search_req.limit or 10) * 2).all()
-        filtered = []
-        for grant in all_results:
-            try:
-                tags = json.loads(grant.sector_tags) if grant.sector_tags else []
-                # Check if there is intersection
-                if any(sec in tags for sec in search_req.sectors):
-                    filtered.append(grant)
-            except Exception as json_err:
-                logger.warning(f"Failed to parse sector tags for grant {grant.id}: {json_err}")
-                continue
-        return filtered[:search_req.limit]
+        return _apply_sector_filter(query, search_req)
 
     # Return standard paginated results
-    results = query.offset(search_req.offset).limit(search_req.limit).all()
-    return results
+    return query.offset(search_req.offset or 0).limit(search_req.limit or 10).all()
 
 @router.get("/matches", response_model=List[schemas.GrantMatchOut])
 def get_grant_matches(

@@ -38,6 +38,16 @@ def register(
         db.add(org)
         db.commit()
         db.refresh(org)
+    else:
+        # Prevent org name squatting: if joining an existing org,
+        # the email domain should loosely match the org name.
+        email_domain = user_in.email.split("@")[-1].lower()
+        org_name_normalized = user_in.organization_name.lower().replace(" ", "").replace("-", "")
+        if org_name_normalized not in email_domain and email_domain not in org_name_normalized:
+            raise HTTPException(
+                status_code=400,
+                detail="Your email domain does not match this organization. Contact the admin for an invite."
+            )
 
     # Check if org already has users to determine role
     existing_user_count = db.query(models.User).filter(models.User.organization_id == org.id).count()

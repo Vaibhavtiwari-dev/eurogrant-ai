@@ -75,7 +75,7 @@ class EstoniaGrantScraper(GrantScraper):
             logger.warning("Estonia portal loaded successfully but returned 0 parsed elements. Triggering fallback.")
             return self._get_fallback_data()
 
-        except (httpx.HTTPError, Exception) as e:
+        except httpx.HTTPError as e:
             # Network or parsing failures are logged as warnings and handled gracefully via simulated fallback data
             logger.warning(f"Estonia grant portal scraping offline/throttled: {e}. Activating high-fidelity fallback database.")
             return self._get_fallback_data()
