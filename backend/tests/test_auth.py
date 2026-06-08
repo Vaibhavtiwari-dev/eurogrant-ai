@@ -1,6 +1,9 @@
-import pytest
-from app.auth import create_access_token, get_password_hash, verify_password
 from datetime import timedelta
+
+import pytest
+
+from app.auth import create_access_token, get_password_hash, verify_password
+
 
 def test_create_access_token():
     data = {"sub": "test@example.com"}
@@ -8,11 +11,13 @@ def test_create_access_token():
     assert token is not None
     assert isinstance(token, str)
 
+
 def test_token_expiration():
     data = {"sub": "test@example.com"}
-    expires = timedelta(minutes=-1) # Already expired
+    expires = timedelta(minutes=-1)  # Already expired
     token = create_access_token(data, expires_delta=expires)
     assert token is not None
+
 
 def test_password_hashing():
     password = "SuperSecretPassword123!"
@@ -33,12 +38,13 @@ class TestPasswordComplexity:
     def _make_user(self, password: str):
         """Helper to create a UserCreate instance with a given password."""
         from app.schemas import UserCreate
+
         return UserCreate(
             email="test@example.com",
             password=password,
             full_name="Test User",
             organization_name="Test Org",
-            invite_code="TEST_CODE"
+            invite_code="TEST_CODE",
         )
 
     def test_valid_complex_password(self):
@@ -72,9 +78,10 @@ class TestLoginNoJwtInBody:
     def test_login_response_no_token(self, db_session):
         """Verify the login success response does not contain access_token field."""
         from fastapi.testclient import TestClient
-        from app.main import app
+
         from app import models
         from app.auth import get_password_hash
+        from app.main import app
 
         # Create a real org and user so login succeeds
         org = models.Organization(name="Login Test Org", subscription_tier="growth")
@@ -96,7 +103,9 @@ class TestLoginNoJwtInBody:
             "/api/v1/auth/login",
             data={"username": "logintest@example.com", "password": "TestPass123!"},
         )
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.json()}"
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}: {response.json()}"
+        )
         body = response.json()
         assert "access_token" not in body, "JWT must not appear in response body"
         assert body.get("message") == "Authentication successful"
