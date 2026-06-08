@@ -78,7 +78,7 @@ jobs:
         if: always()
         uses: codecov/codecov-action@v4
         with:
-          files: ./coverage.xml
+          files: backend/coverage.xml
           flags: backend
 
   frontend:
@@ -124,7 +124,7 @@ jobs:
         if: always()
         uses: codecov/codecov-action@v4
         with:
-          directory: ./coverage
+          directory: frontend/coverage
           flags: frontend
 
   docker-build:
