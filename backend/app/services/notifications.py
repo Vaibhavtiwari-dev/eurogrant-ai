@@ -66,7 +66,7 @@ class NotificationService:
         """Dispatch a styled HTML match-alert email via AWS SES (or offline mock)."""
         display_score = self._score_to_percent(score)
         safe_explanation = html.escape(explanation)
-        dashboard_url = os.getenv("APP_BASE_URL", "https://eurogrant.ai")
+        dashboard_url = os.getenv("APP_BASE_URL", "https://eurogrant.ai").rstrip("/")
         subject = (
             f"\U0001f525 New High-Compatibility Grant Match: "
             f"{html.escape(grant_title)} ({display_score}% Match)"

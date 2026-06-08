@@ -108,11 +108,14 @@ class TestSsrfProtection:
         assert _is_safe_url("http://169.254.169.254/latest/meta-data/") is False
 
     def test_is_safe_url_allows_public_url(self):
+        from unittest.mock import patch
         from app.services.discovery import _is_safe_url
-        # Public URLs should be allowed (if they resolve)
-        result = _is_safe_url("https://www.eas.ee/en/grants")
-        # May raise an error if DNS unavailable in test env, but should not crash
-        assert isinstance(result, bool)
+        # Mock DNS resolution to avoid flakiness in CI/offline environments
+        with patch("app.services.discovery.socket.getaddrinfo", return_value=[
+            (2, 1, 6, "", ("93.185.167.104", 0)),
+        ]):
+            result = _is_safe_url("https://www.eas.ee/en/grants")
+            assert result is True
 
     def test_discovery_service_ssrf_blocked_logs_and_falls_back(self):
         """When the portal URL resolves to a private IP, fallback data should be used."""

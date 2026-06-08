@@ -45,7 +45,7 @@ class ExtractionService:
                         text += page_text + "\n"
         except Exception as e:
             logger.error(f"Error extracting from PDF: {e}")
-            raise e
+            raise
         return text
 
     def _extract_from_docx(self, file_content: bytes) -> str:
@@ -56,7 +56,7 @@ class ExtractionService:
                 text += para.text + "\n"
         except Exception as e:
             logger.error(f"Error extracting from DOCX: {e}")
-            raise e
+            raise
         return text
 
     def explain_match(self, org_profile: str, grant_description: str) -> str:

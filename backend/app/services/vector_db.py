@@ -76,7 +76,7 @@ class VectorService:
             return response.data[0].embedding
         except Exception as e:
             logger.error(f"Embedding generation failed: {e}")
-            raise e
+            raise
 
     def upsert_text(self, text: str, doc_id: int, org_id: int):
         chunks = self.text_splitter.split_text(text)

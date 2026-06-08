@@ -197,7 +197,6 @@ def test_list_proposals_scoped_to_org(db_session, authenticated_client, test_use
     db_session.commit()
 
     # Proposal for *another* org
-    from app.services.extraction import redact_pii
     other_org = models.Organization(name="Other Org PH10", subscription_tier="growth")
     db_session.add(other_org)
     db_session.commit()
