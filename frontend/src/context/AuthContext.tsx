@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import { logger } from "@/utils/logger";
 
 export interface User {
   id: number;
@@ -37,7 +38,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(userData);
         }
       } catch (error) {
-        console.error("Auth check failed", error);
+        logger.error("Auth check failed", error);
       }
       setLoading(false);
     };

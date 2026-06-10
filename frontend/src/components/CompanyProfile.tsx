@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { Building2, Users, Shield, Globe, Cpu, Loader2, Sparkles, Activity } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { OrganizationSchema, type Organization } from "@/schemas/organization";
+import { logger } from "@/utils/logger";
 
 interface CompanyProfileProps {
   refreshKey: number;
@@ -24,7 +25,7 @@ export default function CompanyProfile({ refreshKey }: CompanyProfileProps) {
           setOrg(data as Organization);
         }
       } catch (error) {
-        console.error("Failed to fetch organization:", error);
+        logger.error("Failed to fetch organization:", error);
       } finally {
         if (!ignore) {
           setIsLoading(false);
