@@ -5,6 +5,7 @@ import { useDropzone } from "react-dropzone";
 import { Upload, Loader2, ShieldCheck, FileText } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
+import { logger } from "@/utils/logger";
 
 interface DocumentUploadProps {
   onUploadSuccess: () => void;
@@ -36,7 +37,7 @@ export default function DocumentUpload({ onUploadSuccess }: DocumentUploadProps)
       }
     } catch (error) {
       toast.error("Network analysis failed. Secure uplink unstable.");
-      console.error(error);
+      logger.error(error);
     } finally {
       setIsUploading(false);
     }

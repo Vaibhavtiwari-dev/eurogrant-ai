@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { FileText, Loader2, Radar } from "lucide-react";
 import { z } from "zod";
 import { useTranslations, useFormatter } from "next-intl";
+import { logger } from "@/utils/logger";
 
 const DocumentSchema = z.object({
   id: z.number(),
@@ -35,7 +36,7 @@ export default function DocumentList({ refreshKey }: DocumentListProps) {
           setDocuments(data);
         }
       } catch (error) {
-        console.error("Failed to fetch documents:", error);
+        logger.error("Failed to fetch documents:", error);
       } finally {
         if (!ignore) {
           setIsLoading(false);
@@ -57,7 +58,7 @@ export default function DocumentList({ refreshKey }: DocumentListProps) {
           setDocuments(data);
         }
       } catch (error) {
-        console.error("Failed to fetch documents:", error);
+        logger.error("Failed to fetch documents:", error);
       }
     }, 5000);
     return () => clearInterval(interval);
