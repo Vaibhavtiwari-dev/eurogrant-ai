@@ -1,11 +1,12 @@
 import html
 import logging
-import os
 from pathlib import Path
 
 import boto3
 from botocore.exceptions import ClientError
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +22,10 @@ _template_env = Environment(
 
 class NotificationService:
     def __init__(self) -> None:
-        self.aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
-        self.aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-        self.region_name = os.getenv("AWS_SES_REGION", "eu-central-1")
-        self.sender_email = os.getenv("SES_SENDER_EMAIL", "alerts@eurogrant.ai")
+        self.aws_access_key = settings.AWS_ACCESS_KEY_ID
+        self.aws_secret_key = settings.AWS_SECRET_ACCESS_KEY
+        self.region_name = settings.AWS_SES_REGION
+        self.sender_email = settings.SES_SENDER_EMAIL
         self.is_offline = not (self.aws_access_key and self.aws_secret_key)
 
         if not self.is_offline:
@@ -65,7 +66,7 @@ class NotificationService:
         """Dispatch a styled HTML match-alert email via AWS SES (or offline mock)."""
         display_score = self._score_to_percent(score)
         safe_explanation = html.escape(explanation)
-        dashboard_url = os.getenv("APP_BASE_URL", "https://eurogrant.ai").rstrip("/")
+        dashboard_url = settings.APP_BASE_URL.rstrip("/")
         subject = (
             f"\U0001f525 New High-Compatibility Grant Match: "
             f"{html.escape(grant_title)} ({display_score}% Match)"

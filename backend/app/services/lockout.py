@@ -1,15 +1,16 @@
 import hashlib
 import logging
-import os
 
 from redis import Redis
+
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 
 
 class LockoutService:
     def __init__(self) -> None:
-        redis_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
+        redis_url = settings.CELERY_BROKER_URL
         self._degraded: bool = False
         try:
             self.redis = Redis.from_url(redis_url, decode_responses=True)
@@ -40,7 +41,7 @@ class LockoutService:
         if not self.redis:
             return False
         _, lock_key = self._make_key(email)
-        return self.redis.exists(lock_key) > 0
+        return int(self.redis.exists(lock_key)) > 0  # type: ignore
 
     def record_failure(
         self,
@@ -52,7 +53,7 @@ class LockoutService:
         if not self.redis:
             return False
         count_key, lock_key = self._make_key(email)
-        attempts = self.redis.incr(count_key)
+        attempts = int(self.redis.incr(count_key))  # type: ignore
         if attempts == 1:
             self.redis.expire(count_key, window_seconds)
         if attempts >= max_attempts:
