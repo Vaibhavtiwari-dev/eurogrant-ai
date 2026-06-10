@@ -1,4 +1,3 @@
-import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -11,18 +10,19 @@ from jwt.exceptions import PyJWTError as JWTError
 from sqlalchemy.orm import Session
 
 from . import database, models, schemas
+from .config import settings
 
 load_dotenv()
 
 # JWT Configuration
-_SECRET_KEY = os.getenv("JWT_SECRET")
+_SECRET_KEY = settings.JWT_SECRET
 if not _SECRET_KEY:
     raise ValueError("JWT_SECRET environment variable is not set")
 # _SECRET_KEY is confirmed non-None here; assign to a const to appease type checkers
 SECRET_KEY: str = _SECRET_KEY
 
 ALGORITHM = "HS256"  # Hardcoded — do not allow env override to prevent algorithm confusion attacks
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 
