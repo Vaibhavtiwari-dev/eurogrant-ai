@@ -1,4 +1,4 @@
-import os
+import logging
 import secrets
 
 from fastapi import APIRouter, Depends, FastAPI, Request
@@ -11,12 +11,15 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import models, schemas
 from .auth import get_current_user
+from .config import settings
 from .limiter import limiter
 from .routers import auth as auth_router
 from .routers import grants as grants_router
 from .routers import organizations as organizations_router
 from .routers import proposals as proposals_router
 from .routers import uploads as uploads_router
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="EuroGrant AI API")
 app.state.limiter = limiter
@@ -26,7 +29,7 @@ app.add_exception_handler(RateLimitExceededExc, _rate_limit_exceeded_handler)  #
 # Always include localhost variants and known production domains.
 # Add "testserver" only when not in production (test clients send Host: testserver).
 _allowed_hosts = ["eurogrant.ai", "www.eurogrant.ai", "localhost", "127.0.0.1"]
-if os.getenv("ENVIRONMENT", "production") != "production":
+if settings.ENVIRONMENT != "production":
     _allowed_hosts.append("testserver")
 
 # Security: TrustedHostMiddleware — block requests with unrecognized Host headers
@@ -45,6 +48,7 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    # Note: 'unsafe-inline' in style-src is acceptable and required for Tailwind CSS / Next.js.
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'"
     )
@@ -66,7 +70,7 @@ async def csrf_token_middleware(request: Request, call_next):
             value=token,
             httponly=False,
             samesite="strict",
-            secure=os.getenv("ENVIRONMENT", "development") != "development",
+            secure=settings.ENVIRONMENT != "development",
             path="/",
         )
     return response
@@ -79,7 +83,7 @@ async def csrf_protection_middleware(request: Request, call_next):
         origin = request.headers.get("origin")
         referer = request.headers.get("referer")
         allowed_origins = {"http://localhost:3000", "http://127.0.0.1:3000", "https://eurogrant.ai"}
-        if os.getenv("ENVIRONMENT", "production") != "production":
+        if settings.ENVIRONMENT != "production":
             allowed_origins.add("http://testserver")
         # If Origin header is present, validate it matches an allowed origin
         if origin:
@@ -102,10 +106,16 @@ async def csrf_protection_middleware(request: Request, call_next):
                     content={"detail": "CSRF validation failed: unauthorized referer"},
                 )
         else:
-            csrf_cookie = request.cookies.get("csrf_token")
-            csrf_header = request.headers.get("X-CSRF-Token")
-            if not (csrf_cookie and csrf_header and csrf_cookie == csrf_header):
-                pass  # SameSite=Strict protects cookie auth; allow through
+            if settings.ENVIRONMENT == "testing":
+                pass
+            else:
+                csrf_cookie = request.cookies.get("csrf_token")
+                csrf_header = request.headers.get("X-CSRF-Token")
+                if not (csrf_cookie and csrf_header and secrets.compare_digest(csrf_cookie, csrf_header)):
+                    return JSONResponse(
+                        status_code=403,
+                        content={"detail": "CSRF validation failed: missing or invalid token"},
+                    )
     response = await call_next(request)
     return response
 
@@ -121,8 +131,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-CSRF-Token", "Accept"],
 )
 
 # API Versioning: v1 Router
@@ -160,7 +170,7 @@ async def health_check():
     try:
         from redis import Redis as RedisClient
 
-        r = RedisClient.from_url(os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0"))
+        r = RedisClient.from_url(settings.CELERY_BROKER_URL)
         r.ping()
         r.close()
         health_status["redis"] = "ok"
@@ -176,7 +186,7 @@ async def health_check():
             health_status["lockout_degraded"] = True
             health_status["status"] = "degraded"
     except Exception:
-        pass
+        logger.warning("Health check: lockout service check failed", exc_info=True)
     status_code = 200 if health_status["status"] == "healthy" else 503
     from fastapi.responses import JSONResponse
 
