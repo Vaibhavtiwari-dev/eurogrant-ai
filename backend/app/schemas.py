@@ -31,9 +31,7 @@ class UserCreate(UserBase):
         return v
 
 
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
+
 
 
 class Token(BaseModel):
@@ -140,8 +138,7 @@ class GrantBase(BaseModel):
     sector_tags: str | None = None
 
 
-class GrantCreate(GrantBase):
-    pass
+
 
 
 class GrantOut(GrantBase):
