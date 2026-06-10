@@ -1,10 +1,9 @@
-import os
-
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from .. import auth, database, models, schemas
+from ..config import settings
 from ..limiter import limiter
 from ..services.lockout import lockout_service
 
@@ -19,7 +18,7 @@ def register(
     db: Session = Depends(database.get_db),
 ) -> models.User:
     # Validate invite code - Mandatory environment variable check
-    master_invite_code = os.getenv("MASTER_INVITE_CODE")
+    master_invite_code = settings.MASTER_INVITE_CODE
     if not master_invite_code:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -109,7 +108,7 @@ def login(
     access_token = auth.create_access_token(data={"sub": user.email})
 
     # Set httpOnly cookie with strict SameSite + Secure flags for CSRF protection
-    is_localhost = os.getenv("ENVIRONMENT", "development") == "development"
+    is_localhost = settings.ENVIRONMENT == "development"
     response.set_cookie(
         key="access_token",
         value=access_token,
@@ -128,7 +127,7 @@ def login(
 
 @router.post("/logout")
 def logout(response: Response) -> dict:
-    is_localhost = os.getenv("ENVIRONMENT", "development") == "development"
+    is_localhost = settings.ENVIRONMENT == "development"
     response.delete_cookie(
         key="access_token", httponly=True, samesite="strict", path="/", secure=not is_localhost
     )

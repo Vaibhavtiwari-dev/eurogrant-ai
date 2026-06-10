@@ -94,7 +94,7 @@ def create_proposal(
 
     # --- Dispatch the async Celery task ---
     try:
-        generate_proposal_task.delay(proposal.id)
+        generate_proposal_task.delay(proposal.id)  # type: ignore
         logger.info("Queued generate_proposal_task for proposal %d", proposal.id)
     except Exception as e:
         logger.error(

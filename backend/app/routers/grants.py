@@ -51,8 +51,8 @@ def _apply_sector_filter(query, search_req: schemas.GrantSearchRequest) -> list[
     filtered = []
     for grant in all_results:
         try:
-            tags = json.loads(grant.sector_tags) if grant.sector_tags else []
-            if any(sec in tags for sec in search_req.sectors):
+            tags = grant.sector_tags or []
+            if search_req.sectors and any(sec in tags for sec in search_req.sectors):
                 filtered.append(grant)
         except (json.JSONDecodeError, TypeError) as json_err:
             logger.warning(f"Failed to parse sector tags for grant {grant.id}: {json_err}")
