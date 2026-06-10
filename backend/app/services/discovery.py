@@ -2,7 +2,8 @@ import ipaddress
 import logging
 import socket
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta
+from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -11,17 +12,18 @@ from bs4 import BeautifulSoup
 logger = logging.getLogger(__name__)
 
 
-def _is_safe_url(url):
-    from urllib.parse import urlparse
+@contextmanager
+def ssrf_protection():
+    """
+    Context manager that patches socket.getaddrinfo to prevent SSRF and DNS Rebinding
+    (Time-Of-Check to Time-Of-Use gaps) by validating the IP at the exact moment of connection.
+    """
+    orig_getaddrinfo = socket.getaddrinfo
 
-    try:
-        parsed = urlparse(url)
-        hostname = parsed.hostname
-        if not hostname:
-            return False
-        addrinfos = socket.getaddrinfo(hostname, None)
-        for _family, _type, _proto, _canonname, sockaddr in addrinfos:
-            ip_str = sockaddr[0]
+    def safe_getaddrinfo(*args, **kwargs):
+        results = orig_getaddrinfo(*args, **kwargs)
+        for res in results:
+            ip_str = res[4][0]
             try:
                 ip_obj = ipaddress.ip_address(ip_str)
                 if (
@@ -31,13 +33,41 @@ def _is_safe_url(url):
                     or ip_obj.is_multicast
                     or ip_obj.is_reserved
                 ):
-                    logger.warning("SSRF blocked: %s resolves to blocked IP %s", url, ip_str)
-                    return False
+                    logger.warning("SSRF blocked: Host resolved to blocked IP %s", ip_str)
+                    raise socket.gaierror(f"SSRF blocked: illegal IP {ip_str}")
             except ValueError:
-                continue
+                pass
+        return results
+
+    socket.getaddrinfo = safe_getaddrinfo
+    try:
+        yield
+    finally:
+        socket.getaddrinfo = orig_getaddrinfo
+
+def _is_safe_url(url):
+    # Kept for simple static checks, but actual network calls MUST use the ssrf_protection context manager
+    from urllib.parse import urlparse
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+            
+        allowed_domains = {"www.eas.ee", "eas.ee"}
+        if hostname not in allowed_domains:
+            return False
+            
+        # Static check for direct IPs
+        try:
+            ip_obj = ipaddress.ip_address(hostname)
+            if (ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local
+                or ip_obj.is_multicast or ip_obj.is_reserved):
+                return False
+        except ValueError:
+            pass
         return True
-    except Exception as e:
-        logger.warning("SSRF validation failed for %s: %s", url, e)
+    except Exception:
         return False
 
 
@@ -74,9 +104,12 @@ class EstoniaGrantScraper(GrantScraper):
                     "SSRF validation failed for portal URL: %s. Using fallback.", self.portal_url
                 )
                 return self._get_fallback_data()
+
+            # Use ssrf_protection context manager to prevent DNS rebinding TOCTOU
             # We enforce a strict timeout to prevent thread blocking
-            response = httpx.get(self.portal_url, timeout=self.timeout, follow_redirects=False)
-            response.raise_for_status()
+            with ssrf_protection():
+                response = httpx.get(self.portal_url, timeout=self.timeout, follow_redirects=False)
+                response.raise_for_status()
 
             # Parse HTML content via BeautifulSoup
             soup = BeautifulSoup(response.text, "html.parser")
@@ -92,10 +125,10 @@ class EstoniaGrantScraper(GrantScraper):
             )
             return self._get_fallback_data()
 
-        except httpx.HTTPError as e:
-            # Network or parsing failures are logged as warnings and handled gracefully via simulated fallback data
+        except Exception as e:
+            # Network, SSRF Blocks, or parsing failures are logged and handled gracefully via simulated fallback data
             logger.warning(
-                f"Estonia grant portal scraping offline/throttled: {e}. Activating high-fidelity fallback database."
+                f"Estonia grant portal scraping offline/throttled or blocked: {e}. Activating high-fidelity fallback database."
             )
             return self._get_fallback_data()
 
@@ -153,7 +186,7 @@ class EstoniaGrantScraper(GrantScraper):
                         "external_id": external_id,
                         "title": title,
                         "description": description,
-                        "deadline": datetime.utcnow()
+                        "deadline": datetime.now(UTC)
                         + timedelta(days=60),  # Default 60 day deadline
                         "funding_range": "€20,000 - €250,000",
                         "eligibility_criteria": "SME registered in Estonia with less than 250 headcount.",
@@ -172,7 +205,7 @@ class EstoniaGrantScraper(GrantScraper):
         """
         Provides high-fidelity simulated grant opportunities to guarantee local development continuity.
         """
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         return [
             {
                 "external_id": "EE-EAS-2026-0001",

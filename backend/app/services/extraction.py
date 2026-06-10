@@ -1,11 +1,12 @@
 import logging
-import os
 import re
 from io import BytesIO
 
 import docx
 import pdfplumber
 from openai import OpenAI
+
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -61,14 +62,14 @@ class ExtractionService:
         return text
 
     def explain_match(self, org_profile: str, grant_description: str) -> str:
-        api_key = os.getenv("OPENAI_API_KEY")
+        api_key = settings.OPENAI_API_KEY
         if not api_key:
             logger.warning("OPENAI_API_KEY not set. Returning a mock explanation.")
             return "This grant is highly compatible with your organization's focus on innovative technology development and regional expansion."
 
         try:
             client = OpenAI(
-                api_key=api_key, base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+                api_key=api_key, base_url=settings.OPENAI_BASE_URL
             )
             # Sanitize user inputs to prevent tag-injection and prompt injection
             safe_org = org_profile.replace("<", "&lt;").replace(">", "&gt;")
