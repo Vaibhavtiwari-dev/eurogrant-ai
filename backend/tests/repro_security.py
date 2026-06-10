@@ -1,4 +1,3 @@
-import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -20,30 +19,15 @@ def test_prompt_injection_sanitization():
         extract_company_profile(injection_payload, 1, mock_db)
 
         args, kwargs = mock_openai.chat.completions.create.call_args
-        sent_prompt = kwargs["messages"][0]["content"]
-
-        # Verify triple backticks are REMOVED/REPLACED in the document text block
-        # The prompt structure is:
-        # Document text:
-        # ```
-        # {safe_input}
-        # ```
+        user_prompt = kwargs["messages"][1]["content"]
 
         # Let's extract the part between the document text delimiters
-        prompt_parts = sent_prompt.split("Document text:")
-        assert len(prompt_parts) > 1, "Expected 'Document text:' delimiter in prompt"
-        doc_part = prompt_parts[1].strip()
-        # The doc_part should start with ``` and end with ``` (before the JSON instruction)
-        # However, our injection payload had its own ``` which should have been replaced with " ".
+        prompt_parts = user_prompt.split("<document>")
+        assert len(prompt_parts) > 1, "Expected '<document>' delimiter in prompt"
+        doc_part = prompt_parts[1].split("</document>")[0].strip()
 
-        # If we split by ``` we should see our sanitized content
-        # Document text: \n ``` \n [sanitized content] \n ``` \n Return a JSON...
-        parts = doc_part.split("---")
-        assert len(parts) > 1, "Expected '---' delimiters in prompt"
-        sanitized_content = parts[1].strip()
-
-        assert "```" not in sanitized_content
-        assert "Ignore all previous instructions" in sanitized_content
+        assert "```" not in doc_part, "Prompt injection sanitization failed! Found backticks."
+        assert "Ignore all previous instructions" in doc_part
 
 
 def get_mock_request():
@@ -62,8 +46,9 @@ def get_mock_request():
 # Test 2: Hardcoded Invite Code Fix Verification
 def test_hardcoded_invite_code_removed():
     # Ensure environment variable is NOT set
-    if "MASTER_INVITE_CODE" in os.environ:
-        del os.environ["MASTER_INVITE_CODE"]
+    from app.config import settings
+    if hasattr(settings, "MASTER_INVITE_CODE"):
+        settings.MASTER_INVITE_CODE = None
 
     mock_db = MagicMock()
     from app.routers.auth import register
@@ -80,8 +65,8 @@ def test_hardcoded_invite_code_removed():
 
 
 def test_hardcoded_invite_code_verification_logic():
-    # Set env var
-    os.environ["MASTER_INVITE_CODE"] = "REAL_CODE_123"
+    from app.config import settings
+    settings.MASTER_INVITE_CODE = "REAL_CODE_123"
 
     mock_db = MagicMock()
     from app.routers.auth import register
@@ -95,4 +80,4 @@ def test_hardcoded_invite_code_verification_logic():
     assert excinfo.value.status_code == 403
 
     # Cleanup
-    del os.environ["MASTER_INVITE_CODE"]
+    settings.MASTER_INVITE_CODE = None

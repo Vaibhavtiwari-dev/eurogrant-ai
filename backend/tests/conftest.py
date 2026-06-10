@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-os.environ["ENVIRONMENT"] = "development"
+os.environ["ENVIRONMENT"] = "testing"
 
 # Must set DATABASE_URL before any app import so that the worker's SessionLocal
 # (from app.database) connects to the same SQLite file as the test session.
@@ -87,10 +87,10 @@ def mock_worker():
     mock = MagicMock()
     from app.worker import process_company_document
 
-    old_delay = process_company_document.delay
-    process_company_document.delay = mock
+    old_delay = getattr(process_company_document, "delay", None)
+    process_company_document.delay = mock  # type: ignore
     yield mock
-    process_company_document.delay = old_delay
+    process_company_document.delay = old_delay  # type: ignore
 
 
 @pytest.fixture
