@@ -68,9 +68,7 @@ class ExtractionService:
             return "This grant is highly compatible with your organization's focus on innovative technology development and regional expansion."
 
         try:
-            client = OpenAI(
-                api_key=api_key, base_url=settings.OPENAI_BASE_URL
-            )
+            client = OpenAI(api_key=api_key, base_url=settings.OPENAI_BASE_URL)
             # Sanitize user inputs to prevent tag-injection and prompt injection
             safe_org = org_profile.replace("<", "&lt;").replace(">", "&gt;")
             safe_grant = grant_description[:2000].replace("<", "&lt;").replace(">", "&gt;")

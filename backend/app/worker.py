@@ -120,7 +120,7 @@ def extract_company_profile(text: str, org_id: int, db):
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": user_prompt},
             ],
             response_format={"type": "json_object"},
         )
@@ -133,10 +133,12 @@ def extract_company_profile(text: str, org_id: int, db):
             profile_data: dict = raw_content  # type: ignore
         elif isinstance(raw_content, (bytes, bytearray)):
             profile_data: dict = json.loads(  # type: ignore
-            raw_content.decode("utf-8"))
+                raw_content.decode("utf-8")
+            )
         elif isinstance(raw_content, str):
             profile_data: dict = json.loads(  # type: ignore
-            raw_content)
+                raw_content
+            )
         else:
             raise ValueError(f"LLM returned unsupported content type: {type(raw_content).__name__}")
 
@@ -207,7 +209,9 @@ def scrape_grants():
                         db.add(new_grant)
                         db.commit()
                         db.refresh(new_grant)
-                        logger.info(f"Created new grant {data['external_id']} with ID {new_grant.id}")
+                        logger.info(
+                            f"Created new grant {data['external_id']} with ID {new_grant.id}"
+                        )
                         grant_obj = new_grant
 
                     updated_or_created_count += 1
@@ -262,7 +266,9 @@ def scan_for_new_matches():
                 if org.countries_of_operation:
                     query_parts.append(f"Countries: {org.countries_of_operation}")
 
-                query_str = " | ".join(query_parts) if query_parts else "General startup business grant"
+                query_str = (
+                    " | ".join(query_parts) if query_parts else "General startup business grant"
+                )
 
                 matches_data = []
                 try:
@@ -277,7 +283,11 @@ def scan_for_new_matches():
                 if not matches_data:
                     grants = db.query(Grant).limit(5).all()
                     matches_data = [
-                        {"grant_id": grant.id, "score": 0.88 - (i * 0.05), "text": grant.description}
+                        {
+                            "grant_id": grant.id,
+                            "score": 0.88 - (i * 0.05),
+                            "text": grant.description,
+                        }
                         for i, grant in enumerate(grants)
                     ]
 

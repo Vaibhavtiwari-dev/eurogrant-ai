@@ -24,6 +24,7 @@ from app.services.s3 import S3Service  # noqa: E402
 @pytest.mark.asyncio
 async def test_upload_fileobj_local(tmp_path, monkeypatch):
     from app.config import settings
+
     settings.STORAGE_BACKEND = "local"
 
     # Rebuild the service so it picks up the new env vars
@@ -50,6 +51,7 @@ async def test_upload_fileobj_local(tmp_path, monkeypatch):
 @pytest.mark.asyncio
 async def test_get_fileobj_local(tmp_path, monkeypatch):
     from app.config import settings
+
     settings.STORAGE_BACKEND = "local"
 
     target = tmp_path / "readme.txt"
@@ -64,6 +66,7 @@ async def test_get_fileobj_local(tmp_path, monkeypatch):
 @pytest.mark.asyncio
 async def test_upload_fileobj_s3_path(monkeypatch):
     from app.config import settings
+
     settings.STORAGE_BACKEND = "s3"
     settings.S3_BUCKET_NAME = "test-bucket"
 
@@ -90,6 +93,7 @@ async def test_upload_fileobj_s3_path(monkeypatch):
 @pytest.mark.asyncio
 async def test_get_fileobj_s3_path(monkeypatch):
     from app.config import settings
+
     settings.STORAGE_BACKEND = "s3"
     settings.S3_BUCKET_NAME = "test-bucket"
 
@@ -110,6 +114,7 @@ async def test_get_fileobj_s3_path(monkeypatch):
 async def test_upload_fileobj_boto3_error(monkeypatch):
     """A boto3 ClientError should be translated to a safe HTTP error."""
     from app.config import settings
+
     settings.STORAGE_BACKEND = "s3"
     settings.S3_BUCKET_NAME = "test-bucket"
 

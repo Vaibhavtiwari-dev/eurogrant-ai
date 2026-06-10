@@ -111,7 +111,9 @@ async def csrf_protection_middleware(request: Request, call_next):
             else:
                 csrf_cookie = request.cookies.get("csrf_token")
                 csrf_header = request.headers.get("X-CSRF-Token")
-                if not (csrf_cookie and csrf_header and secrets.compare_digest(csrf_cookie, csrf_header)):
+                if not (
+                    csrf_cookie and csrf_header and secrets.compare_digest(csrf_cookie, csrf_header)
+                ):
                     return JSONResponse(
                         status_code=403,
                         content={"detail": "CSRF validation failed: missing or invalid token"},

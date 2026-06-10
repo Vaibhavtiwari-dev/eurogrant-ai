@@ -136,6 +136,18 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build backend image
+        id: build-backend
+        continue-on-error: true
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: false
+          tags: eurogrant-backend:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Retry backend image build
+        if: steps.build-backend.outcome == 'failure'
         uses: docker/build-push-action@v5
         with:
           context: ./backend
@@ -145,6 +157,18 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build frontend image
+        id: build-frontend
+        continue-on-error: true
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: false
+          tags: eurogrant-frontend:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Retry frontend image build
+        if: steps.build-frontend.outcome == 'failure'
         uses: docker/build-push-action@v5
         with:
           context: ./frontend

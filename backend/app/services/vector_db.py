@@ -47,9 +47,7 @@ class VectorService:
                     name=self.index_name,
                     dimension=self.dimension,
                     metric="cosine",
-                    spec=ServerlessSpec(
-                        cloud="aws", region=settings.PINECONE_ENVIRONMENT
-                    ),
+                    spec=ServerlessSpec(cloud="aws", region=settings.PINECONE_ENVIRONMENT),
                 )
                 logger.info(
                     f"Created new Pinecone index: {self.index_name}. Waiting for readiness..."
@@ -102,8 +100,10 @@ class VectorService:
             return
 
         try:
-            self.index.upsert(vectors=vectors  # type: ignore
-, namespace=namespace)
+            self.index.upsert(
+                vectors=vectors,  # type: ignore
+                namespace=namespace,
+            )
             logger.info(
                 f"Upserted {len(vectors)} chunks for document {doc_id} to Pinecone namespace {namespace}"
             )
@@ -130,8 +130,10 @@ class VectorService:
             return
 
         try:
-            self.index.upsert(vectors=vectors  # type: ignore
-, namespace="grants")
+            self.index.upsert(
+                vectors=vectors,  # type: ignore
+                namespace="grants",
+            )
             logger.info(
                 f"Upserted {len(vectors)} chunks for grant {grant_id} to Pinecone namespace grants"
             )
@@ -154,7 +156,8 @@ class VectorService:
 
         try:
             # 2. Query Pinecone grants namespace
-            results = typing.cast(typing.Any, self.index).query(vector=embedding, namespace="grants", top_k=limit, include_metadata=True
+            results = typing.cast(typing.Any, self.index).query(
+                vector=embedding, namespace="grants", top_k=limit, include_metadata=True
             )
             # 3. Extract and standard return grant IDs from metadata
             grant_ids = []
@@ -180,7 +183,8 @@ class VectorService:
             return []
 
         try:
-            results = typing.cast(typing.Any, self.index).query(vector=embedding, namespace="grants", top_k=top_k, include_metadata=True
+            results = typing.cast(typing.Any, self.index).query(
+                vector=embedding, namespace="grants", top_k=top_k, include_metadata=True
             )
             matches = []
             for match in results.get("matches", []):
@@ -225,7 +229,8 @@ class VectorService:
             return []
 
         try:
-            results = typing.cast(typing.Any, self.index).query(vector=embedding,
+            results = typing.cast(typing.Any, self.index).query(
+                vector=embedding,
                 namespace=namespace,
                 top_k=top_k,
                 include_metadata=True,

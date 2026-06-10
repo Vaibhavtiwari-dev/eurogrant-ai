@@ -45,24 +45,31 @@ def ssrf_protection():
     finally:
         socket.getaddrinfo = orig_getaddrinfo
 
+
 def _is_safe_url(url):
     # Kept for simple static checks, but actual network calls MUST use the ssrf_protection context manager
     from urllib.parse import urlparse
+
     try:
         parsed = urlparse(url)
         hostname = parsed.hostname
         if not hostname:
             return False
-            
+
         allowed_domains = {"www.eas.ee", "eas.ee"}
         if hostname not in allowed_domains:
             return False
-            
+
         # Static check for direct IPs
         try:
             ip_obj = ipaddress.ip_address(hostname)
-            if (ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local
-                or ip_obj.is_multicast or ip_obj.is_reserved):
+            if (
+                ip_obj.is_private
+                or ip_obj.is_loopback
+                or ip_obj.is_link_local
+                or ip_obj.is_multicast
+                or ip_obj.is_reserved
+            ):
                 return False
         except ValueError:
             pass

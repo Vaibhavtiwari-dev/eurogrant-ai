@@ -33,6 +33,7 @@ def test_auth_login_invalid():
 def test_auth_register_success(db_session):
     # Ensure MASTER_INVITE_CODE is set for tests
     from app.config import settings
+
     settings.MASTER_INVITE_CODE = "testcode"
     unique_id = str(uuid.uuid4())[:8]
     payload = {
@@ -52,6 +53,7 @@ def test_auth_register_success(db_session):
 
 def test_auth_register_duplicate_email(db_session):
     from app.config import settings
+
     settings.MASTER_INVITE_CODE = "testcode"
     unique_id = str(uuid.uuid4())[:8]
     email = f"dup_{unique_id}@example.com"
@@ -79,6 +81,7 @@ def test_auth_login_success(db_session):
 
     # Register first
     from app.config import settings
+
     settings.MASTER_INVITE_CODE = "testcode"
     client.post(
         "/api/v1/auth/register",

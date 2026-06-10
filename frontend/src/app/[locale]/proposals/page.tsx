@@ -10,6 +10,17 @@ import { useRouter } from "@/i18n/routing";
 import { apiFetch } from "@/lib/api";
 import { FileText, Loader2, AlertCircle, ArrowUpRight, CheckCircle2, RefreshCw } from "lucide-react";
 import { logger } from "@/utils/logger";
+import { z } from "zod";
+
+const proposalApiSchema = z.object({
+  id: z.number(),
+  grant_id: z.number(),
+  status: z.enum(["pending", "processing", "completed", "failed"]),
+  content: z.string().nullable(),
+  created_at: z.string(),
+});
+
+const proposalListApiSchema = z.array(proposalApiSchema);
 
 interface ProposalMock {
   id: string;
@@ -46,16 +57,16 @@ export default function ProposalsPage() {
       try {
         const res = await apiFetch("/proposals");
         if (res.ok) {
-          const data = await res.json();
+          const data = proposalListApiSchema.parse(await res.json());
           if (Array.isArray(data) && data.length > 0) {
-            const formatted: ProposalMock[] = data.map((prop: any) => ({
+            const formatted: ProposalMock[] = data.map((prop) => ({
               id: `PROP-${prop.id.toString().padStart(4, '0')}`,
               title: prop.content ? prop.content.split('\n')[0].replace(/#/g, '').trim() : "Draft Proposal",
               grantName: `Grant ID: ${prop.grant_id}`,
               requestedAmount: "TBD", // Extract from content later or add to DB
-              status: (prop.status === "PENDING" || prop.status === "PROCESSING" ? "GENERATING" : prop.status === "COMPLETED" ? "COMPLETED" : "DRAFT") as "GENERATING" | "COMPLETED" | "DRAFT",
-              progress: prop.status === "COMPLETED" ? 100 : prop.status === "PROCESSING" ? 65 : prop.status === "FAILED" ? 0 : 10,
-              subtext: prop.status === "COMPLETED" ? "Ready for Human Polish" : prop.status === "FAILED" ? "Generation Failed" : "Assembling Sections...",
+              status: prop.status === "pending" || prop.status === "processing" ? "GENERATING" : prop.status === "completed" ? "COMPLETED" : "DRAFT",
+              progress: prop.status === "completed" ? 100 : prop.status === "processing" ? 65 : prop.status === "failed" ? 0 : 10,
+              subtext: prop.status === "completed" ? "Ready for Human Polish" : prop.status === "failed" ? "Generation Failed" : "Assembling Sections...",
               updatedAt: new Date(prop.created_at).toLocaleDateString()
             }));
             setProposals(formatted);

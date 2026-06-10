@@ -47,6 +47,7 @@ def get_mock_request():
 def test_hardcoded_invite_code_removed():
     # Ensure environment variable is NOT set
     from app.config import settings
+
     if hasattr(settings, "MASTER_INVITE_CODE"):
         settings.MASTER_INVITE_CODE = None
 
@@ -66,6 +67,7 @@ def test_hardcoded_invite_code_removed():
 
 def test_hardcoded_invite_code_verification_logic():
     from app.config import settings
+
     settings.MASTER_INVITE_CODE = "REAL_CODE_123"
 
     mock_db = MagicMock()

@@ -31,9 +31,6 @@ class UserCreate(UserBase):
         return v
 
 
-
-
-
 class Token(BaseModel):
     access_token: str | None = None  # JWT delivered exclusively via httpOnly cookie
     token_type: str
@@ -136,9 +133,6 @@ class GrantBase(BaseModel):
     scoring_rubric: str | None = None
     source_url: str | None = None
     sector_tags: str | None = None
-
-
-
 
 
 class GrantOut(GrantBase):
