@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
 import { Search, Loader2, Calendar, Award, ExternalLink, Filter, HelpCircle } from "lucide-react";
 import { z } from "zod";
+import { logger } from "@/utils/logger";
 
 const GrantSchema = z.object({
   id: z.number(),
@@ -60,11 +61,11 @@ export default function GrantSearchPage() {
         if (parsed.success) {
           setGrants(parsed.data);
         } else {
-          console.error("Schema validation failed for grants list:", parsed.error);
+          logger.error("Schema validation failed for grants list:", parsed.error);
         }
       }
     } catch (err) {
-      console.error("Failed to query grants:", err);
+      logger.error("Failed to query grants:", err);
     } finally {
       setIsSearching(false);
       if (!isInitial) {

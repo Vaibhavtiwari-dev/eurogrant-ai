@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { AlertCircle, RefreshCcw } from 'lucide-react'
+import { logger } from "@/utils/logger"
 
 export default function Error({
   error,
@@ -15,7 +16,7 @@ export default function Error({
 
   useEffect(() => {
     // Log the error to an observability provider (as per GEMINI.md mandate)
-    console.error('Next.js Error Boundary caught error:', error)
+    logger.error('Next.js Error Boundary caught error:', error)
   }, [error])
 
   return (

@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "@/i18n/routing";
 import { apiFetch } from "@/lib/api";
 import { FileText, Loader2, AlertCircle, ArrowUpRight, CheckCircle2, RefreshCw } from "lucide-react";
+import { logger } from "@/utils/logger";
 
 interface ProposalMock {
   id: string;
@@ -43,40 +44,27 @@ export default function ProposalsPage() {
     const fetchProposals = async () => {
       if (!user) return;
       try {
-        // Query uploads to see if the user has uploaded documents
-        const res = await apiFetch("/uploads/documents");
+        const res = await apiFetch("/proposals");
         if (res.ok) {
-          const docs = await res.json();
-          if (Array.isArray(docs) && docs.length > 0) {
-            // Simulate active generated drafts linked to the dashboard pipelines
-            setProposals([
-              {
-                id: "EIC-2024-ACCELERATOR-01",
-                title: "Project GreenLithium",
-                grantName: "EIC Accelerator 2026",
-                requestedAmount: "€2,500,000",
-                status: "GENERATING",
-                progress: 65,
-                subtext: "Context Assembling (RAG)",
-                updatedAt: "Just now"
-              },
-              {
-                id: "PROP-EAS-0082",
-                title: "Circular Resource Allocation Software",
-                grantName: "Estonian GreenTech Innovation Grant",
-                requestedAmount: "€150,000",
-                status: "DRAFT",
-                progress: 100,
-                subtext: "Ready for Human Polish",
-                updatedAt: "2 hours ago"
-              }
-            ]);
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            const formatted: ProposalMock[] = data.map((prop: any) => ({
+              id: `PROP-${prop.id.toString().padStart(4, '0')}`,
+              title: prop.content ? prop.content.split('\n')[0].replace(/#/g, '').trim() : "Draft Proposal",
+              grantName: `Grant ID: ${prop.grant_id}`,
+              requestedAmount: "TBD", // Extract from content later or add to DB
+              status: (prop.status === "PENDING" || prop.status === "PROCESSING" ? "GENERATING" : prop.status === "COMPLETED" ? "COMPLETED" : "DRAFT") as "GENERATING" | "COMPLETED" | "DRAFT",
+              progress: prop.status === "COMPLETED" ? 100 : prop.status === "PROCESSING" ? 65 : prop.status === "FAILED" ? 0 : 10,
+              subtext: prop.status === "COMPLETED" ? "Ready for Human Polish" : prop.status === "FAILED" ? "Generation Failed" : "Assembling Sections...",
+              updatedAt: new Date(prop.created_at).toLocaleDateString()
+            }));
+            setProposals(formatted);
           } else {
             setProposals([]);
           }
         }
       } catch (err) {
-        console.error("Failed to load proposals:", err);
+        logger.error("Failed to load proposals:", err);
       } finally {
         setIsFetching(false);
       }

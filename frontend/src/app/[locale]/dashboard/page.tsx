@@ -17,6 +17,7 @@ import NotificationSettings from "@/components/dashboard/NotificationSettings";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
 import { X } from "lucide-react";
+import { logger } from "@/utils/logger";
 
 interface DashboardOverview {
   stats: {
@@ -70,7 +71,7 @@ export default function DashboardPage() {
             setOverview(data);
           }
         } catch (error) {
-          console.error("Failed to fetch dashboard overview", error);
+          logger.error("Failed to fetch dashboard overview", error);
         }
       }
     };
