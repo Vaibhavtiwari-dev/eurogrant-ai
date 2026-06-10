@@ -1,34 +1,36 @@
 import asyncio
 import logging
-import os
 import shutil
 from pathlib import Path
+from typing import Any
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import HTTPException, UploadFile, status
+
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 
 
 class S3Service:
     def __init__(self) -> None:
-        self.storage_backend = os.getenv("STORAGE_BACKEND", "s3").lower()
+        self.storage_backend = settings.STORAGE_BACKEND.lower()
         if self.storage_backend == "s3":
             self.s3_client = boto3.client(
                 "s3",
-                aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-                aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-                region_name=os.getenv("AWS_REGION", "eu-central-1"),
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                region_name=settings.AWS_REGION,
             )
-            self.bucket_name = os.getenv("S3_BUCKET_NAME")
+            self.bucket_name = settings.S3_BUCKET_NAME
         else:
             # Use backend root for local storage
             self.local_path = Path("tmp/uploads")
             self.local_path.mkdir(parents=True, exist_ok=True)
             logger.info(f"Using local storage at {self.local_path.absolute()}")
 
-    def _get_s3_client(self) -> "boto3.client | None":
+    def _get_s3_client(self) -> "Any":
         """Return the boto3 S3 client, or None for local-storage backends.
 
         Exposed as a method (not a plain attribute) so tests can patch it.

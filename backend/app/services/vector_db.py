@@ -1,30 +1,32 @@
 import logging
-import os
+import typing
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from openai import OpenAI
 from pinecone import Pinecone, ServerlessSpec
+
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 
 
 class VectorService:
     def __init__(self):
-        api_key = os.getenv("PINECONE_API_KEY")
+        api_key = settings.PINECONE_API_KEY
         if not api_key:
             logger.warning("PINECONE_API_KEY not set — running without vector store")
             self.pc = None
             self.index = None
         else:
             self.pc = Pinecone(api_key=api_key)
-            self.index_name = os.getenv("PINECONE_INDEX_NAME", "eurogrant")
-            self.dimension = int(os.getenv("EMBEDDING_DIMENSION", "1536"))
+            self.index_name = settings.PINECONE_INDEX_NAME
+            self.dimension = int(settings.EMBEDDING_DIMENSION)
 
         self.openai_client = OpenAI(
-            api_key=os.getenv("OPENAI_API_KEY"),
-            base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            api_key=settings.OPENAI_API_KEY,
+            base_url=settings.OPENAI_BASE_URL,
         )
-        self.embedding_model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+        self.embedding_model = settings.EMBEDDING_MODEL
 
         # If Pinecone was configured, ensure the index exists and connect
         if self.pc is not None:
@@ -35,6 +37,8 @@ class VectorService:
         self.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
 
     def _ensure_index_and_connect(self):
+        if self.pc is None:
+            return
         """Ensure the Pinecone index exists and initialise the connection."""
         try:
             active_indexes = [idx.name for idx in self.pc.list_indexes()]
@@ -44,7 +48,7 @@ class VectorService:
                     dimension=self.dimension,
                     metric="cosine",
                     spec=ServerlessSpec(
-                        cloud="aws", region=os.getenv("PINECONE_ENVIRONMENT", "us-east-1")
+                        cloud="aws", region=settings.PINECONE_ENVIRONMENT
                     ),
                 )
                 logger.info(
@@ -62,7 +66,7 @@ class VectorService:
             logger.warning(f"Could not check or create Pinecone index: {e}")
 
         try:
-            self.index = self.pc.Index(self.index_name)
+            self.index = self.pc.Index(self.index_name)  # type: ignore
         except Exception as e:
             logger.error(f"Failed to connect to Pinecone index: {e}")
             self.index = None
@@ -98,7 +102,8 @@ class VectorService:
             return
 
         try:
-            self.index.upsert(vectors=vectors, namespace=namespace)
+            self.index.upsert(vectors=vectors  # type: ignore
+, namespace=namespace)
             logger.info(
                 f"Upserted {len(vectors)} chunks for document {doc_id} to Pinecone namespace {namespace}"
             )
@@ -125,7 +130,8 @@ class VectorService:
             return
 
         try:
-            self.index.upsert(vectors=vectors, namespace="grants")
+            self.index.upsert(vectors=vectors  # type: ignore
+, namespace="grants")
             logger.info(
                 f"Upserted {len(vectors)} chunks for grant {grant_id} to Pinecone namespace grants"
             )
@@ -148,8 +154,7 @@ class VectorService:
 
         try:
             # 2. Query Pinecone grants namespace
-            results = self.index.query(
-                vector=embedding, namespace="grants", top_k=limit, include_metadata=True
+            results = typing.cast(typing.Any, self.index).query(vector=embedding, namespace="grants", top_k=limit, include_metadata=True
             )
             # 3. Extract and standard return grant IDs from metadata
             grant_ids = []
@@ -175,8 +180,7 @@ class VectorService:
             return []
 
         try:
-            results = self.index.query(
-                vector=embedding, namespace="grants", top_k=top_k, include_metadata=True
+            results = typing.cast(typing.Any, self.index).query(vector=embedding, namespace="grants", top_k=top_k, include_metadata=True
             )
             matches = []
             for match in results.get("matches", []):
@@ -221,8 +225,7 @@ class VectorService:
             return []
 
         try:
-            results = self.index.query(
-                vector=embedding,
+            results = typing.cast(typing.Any, self.index).query(vector=embedding,
                 namespace=namespace,
                 top_k=top_k,
                 include_metadata=True,
