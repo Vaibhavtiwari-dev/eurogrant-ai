@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Bell, Sliders, Save, Loader2, CheckCircle2, ShieldCheck } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { OrganizationSchema } from "@/schemas/organization";
+import { logger } from "@/utils/logger";
 
 export default function NotificationSettings() {
   const [emailAlerts, setEmailAlerts] = useState(true);
@@ -22,7 +23,7 @@ export default function NotificationSettings() {
           setThreshold(data.match_threshold);
         }
       } catch (err) {
-        console.error("Failed to load organization settings:", err);
+        logger.error("Failed to load organization settings:", err);
       } finally {
         setIsLoading(false);
       }
@@ -51,7 +52,7 @@ export default function NotificationSettings() {
         setTimeout(() => setSaveSuccess(false), 3000);
       }
     } catch (err) {
-      console.error("Failed to save settings:", err);
+      logger.error("Failed to save settings:", err);
     } finally {
       setIsSaving(false);
     }

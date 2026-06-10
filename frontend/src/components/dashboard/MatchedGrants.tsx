@@ -6,6 +6,7 @@ import { Sparkles, Calendar, Award, ExternalLink, ArrowRight, Loader2, RefreshCw
 import { apiFetch } from "@/lib/api";
 import { z } from "zod";
 import { toast } from "sonner";
+import { logger } from "@/utils/logger";
 
 const GrantSchema = z.object({
   id: z.number(),
@@ -51,7 +52,7 @@ export default function MatchedGrants({ refreshKey = 0 }: MatchedGrantsProps) {
         setMatches(data);
       }
     } catch (err) {
-      console.error("Failed to fetch grant matches:", err);
+      logger.error("Failed to fetch grant matches:", err);
       setError("Failed to fetch matches. Please make sure the backend is active.");
     } finally {
       setIsLoading(false);
