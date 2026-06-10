@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, NoReturn
 
 from fastapi import HTTPException, status
 
@@ -8,7 +8,7 @@ def error_response(
     message: str,
     details: dict[str, Any] | None = None,
     status_code: int = status.HTTP_404_NOT_FOUND,
-) -> None:
+) -> NoReturn:
     """Raise an HTTPException with a consistent JSON error envelope.
 
     The response body follows the format::
