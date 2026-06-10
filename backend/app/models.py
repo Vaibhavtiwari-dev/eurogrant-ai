@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Enum, Float, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -25,8 +25,8 @@ class Organization(Base):
     headcount_range: Mapped[str | None] = mapped_column(String(50), nullable=True)
     revenue_tier: Mapped[str | None] = mapped_column(String(50), nullable=True)
     legal_entity_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    countries_of_operation: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON string
-    core_technologies: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON string
+    countries_of_operation: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    core_technologies: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), onupdate=func.now(), nullable=True
@@ -69,7 +69,7 @@ class Grant(Base):
     eligibility_criteria: Mapped[str | None] = mapped_column(Text, nullable=True)
     scoring_rubric: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    sector_tags: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON string array
+    sector_tags: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
