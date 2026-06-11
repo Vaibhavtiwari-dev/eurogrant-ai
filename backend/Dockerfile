@@ -27,6 +27,6 @@ RUN chown -R appuser:appuser /app
 USER appuser
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD python -c "import urllib.request; exec(urllib.request.urlopen('http://localhost:8000/health').read())" || exit 1
+  CMD python -c "import urllib.request; response = urllib.request.urlopen('http://localhost:8000/health'); raise SystemExit(0 if response.status == 200 else 1)" || exit 1
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
