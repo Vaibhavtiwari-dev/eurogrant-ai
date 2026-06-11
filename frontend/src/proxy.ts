@@ -12,13 +12,18 @@ function isPublicPath(pathname: string) {
 }
 
 function buildCsp(nonce: string): string {
+  const connectSources = ["'self'", 'https://eurogrant.ai'];
+  if (process.env.NODE_ENV !== 'production') {
+    connectSources.push('http://localhost:8000', 'http://127.0.0.1:8000');
+  }
+
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    "connect-src 'self' http://localhost:8000 https://eurogrant.ai",
+    `connect-src ${connectSources.join(' ')}`,
     "frame-ancestors 'none'",
     "form-action 'self'",
     "base-uri 'self'",
@@ -26,7 +31,7 @@ function buildCsp(nonce: string): string {
   ].join('; ');
 }
 
-export default function middleware(request: NextRequest) {
+export default function proxy(request: NextRequest) {
   const {pathname} = request.nextUrl;
 
   // Per-request nonce for inline scripts (e.g. JSON-LD in layout).
