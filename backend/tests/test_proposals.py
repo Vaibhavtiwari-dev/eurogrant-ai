@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
@@ -12,7 +13,7 @@ client = TestClient(app)
 
 # The patch targets used throughout — defined once for consistency
 CELERY_DELAY_PATH = "app.routers.proposals.generate_proposal_task.delay"
-OPENAI_CLIENT_PATH = "app.services.proposal_gen._get_openai_client"
+OPENAI_CLIENT_PATH = "app.services.proposal_gen.get_openai_client"
 
 
 # Helper for often-used patching kwargs
@@ -399,3 +400,376 @@ def test_proposal_service_llm_failure(db_session, test_user):
                 org_id=test_user.organization_id,
                 grant_id=grant.id,
             )
+
+
+def _create_sectioned_proposal(db_session, test_user):
+    grant = models.Grant(
+        external_id=f"SECTION-{test_user.id}",
+        title="Section API Grant",
+        description="Section API tests.",
+        deadline=datetime(2027, 10, 1, tzinfo=UTC),
+    )
+    db_session.add(grant)
+    db_session.commit()
+    proposal = models.Proposal(
+        organization_id=test_user.organization_id,
+        grant_id=grant.id,
+        status=models.ProposalStatus.COMPLETED,
+    )
+    db_session.add(proposal)
+    db_session.commit()
+    section = models.ProposalSection(
+        proposal_id=proposal.id,
+        section_key="summary",
+        name="Executive Summary",
+        content_json={
+            "type": "doc",
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [{"type": "text", "text": "Initial"}],
+                }
+            ],
+        },
+        order=0,
+        status=models.SectionStatus.COMPLETED,
+        version=1,
+    )
+    db_session.add(section)
+    db_session.commit()
+    return proposal, section
+
+
+def test_viewer_cannot_create_proposal(db_session, authenticated_client, test_user):
+    test_user.role = models.RoleEnum.VIEWER
+    db_session.commit()
+    response = authenticated_client.post("/api/v1/proposals/", json={"grant_id": 1})
+    assert response.status_code == 403
+
+
+def test_viewer_can_read_sections(db_session, authenticated_client, test_user):
+    proposal, section = _create_sectioned_proposal(db_session, test_user)
+    test_user.role = models.RoleEnum.VIEWER
+    db_session.commit()
+    response = authenticated_client.get(f"/api/v1/proposals/{proposal.id}/sections")
+    assert response.status_code == 200
+    assert response.json()[0]["id"] == section.id
+    assert "generation_job_id" not in response.json()[0]
+
+
+def test_viewer_cannot_edit_section(db_session, authenticated_client, test_user):
+    proposal, section = _create_sectioned_proposal(db_session, test_user)
+    test_user.role = models.RoleEnum.VIEWER
+    db_session.commit()
+    response = authenticated_client.patch(
+        f"/api/v1/proposals/{proposal.id}/sections/{section.id}",
+        json={"content_json": {"type": "doc"}, "expected_version": 1},
+    )
+    assert response.status_code == 403
+
+
+def test_update_section_rebuilds_snapshot(db_session, authenticated_client, test_user):
+    proposal, section = _create_sectioned_proposal(db_session, test_user)
+    document = {
+        "type": "doc",
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [{"type": "text", "text": "Updated safely"}],
+            }
+        ],
+    }
+    response = authenticated_client.patch(
+        f"/api/v1/proposals/{proposal.id}/sections/{section.id}",
+        json={"content_json": document, "expected_version": 1},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["version"] == 2
+    db_session.expire_all()
+    updated = db_session.get(models.Proposal, proposal.id)
+    assert updated.content == "## Executive Summary\n\nUpdated safely"
+
+
+def test_stale_update_returns_conflict(db_session, authenticated_client, test_user):
+    proposal, section = _create_sectioned_proposal(db_session, test_user)
+    response = authenticated_client.patch(
+        f"/api/v1/proposals/{proposal.id}/sections/{section.id}",
+        json={"content_json": {"type": "doc"}, "expected_version": 99},
+    )
+    assert response.status_code == 409
+    assert "VERSION_CONFLICT" in response.text
+    assert response.json()["detail"]["error"]["details"]["current_version"] == 1
+
+
+def test_unsafe_section_content_is_rejected(db_session, authenticated_client, test_user):
+    proposal, section = _create_sectioned_proposal(db_session, test_user)
+    response = authenticated_client.patch(
+        f"/api/v1/proposals/{proposal.id}/sections/{section.id}",
+        json={
+            "content_json": {
+                "type": "doc",
+                "content": [
+                    {
+                        "type": "paragraph",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "click",
+                                "marks": [
+                                    {
+                                        "type": "link",
+                                        "attrs": {"href": "javascript:alert(1)"},
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            },
+            "expected_version": 1,
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_regenerate_queues_versioned_job(db_session, authenticated_client, test_user):
+    proposal, section = _create_sectioned_proposal(db_session, test_user)
+    with patch("app.routers.proposals.regenerate_proposal_section_task.delay") as mock_delay:
+        response = authenticated_client.post(
+            f"/api/v1/proposals/{proposal.id}/sections/{section.id}/regenerate",
+            json={"expected_version": 1},
+        )
+    assert response.status_code == 202, response.text
+    assert response.json()["status"] == "generating"
+    args = mock_delay.call_args.args
+    assert args[0] == proposal.id
+    assert args[1] == section.id
+    assert args[3] == 1
+
+
+def test_stale_regenerate_returns_conflict(db_session, authenticated_client, test_user):
+    proposal, section = _create_sectioned_proposal(db_session, test_user)
+    response = authenticated_client.post(
+        f"/api/v1/proposals/{proposal.id}/sections/{section.id}/regenerate",
+        json={"expected_version": 99},
+    )
+    assert response.status_code == 409
+    assert "VERSION_CONFLICT" in response.text
+
+
+def test_regenerate_queue_failure_is_visible(db_session, authenticated_client, test_user):
+    proposal, section = _create_sectioned_proposal(db_session, test_user)
+    with patch(
+        "app.routers.proposals.regenerate_proposal_section_task.delay",
+        side_effect=RuntimeError("queue unavailable"),
+    ):
+        response = authenticated_client.post(
+            f"/api/v1/proposals/{proposal.id}/sections/{section.id}/regenerate",
+            json={"expected_version": 1},
+        )
+    assert response.status_code == 503
+    db_session.expire_all()
+    updated = db_session.get(models.ProposalSection, section.id)
+    assert updated.status == models.SectionStatus.FAILED
+    assert updated.last_error_code == "QUEUE_UNAVAILABLE"
+
+
+def test_generate_sections_records_partial_failure(db_session, test_user):
+    from app.services.proposal_gen import (
+        ExtractedSection,
+        ExtractedSectionList,
+        ProposalService,
+    )
+
+    grant = models.Grant(
+        external_id="MULTI-PARTIAL",
+        title="Multi Section",
+        description="Generate sections.",
+        deadline=datetime(2027, 11, 1, tzinfo=UTC),
+        scoring_rubric="Impact and implementation",
+    )
+    db_session.add(grant)
+    db_session.commit()
+    proposal = models.Proposal(
+        organization_id=test_user.organization_id,
+        grant_id=grant.id,
+        status=models.ProposalStatus.PROCESSING,
+        generation_job_id="job-partial",
+    )
+    db_session.add(proposal)
+    db_session.commit()
+
+    service = ProposalService()
+    with (
+        patch.object(service, "_build_context", return_value="Safe context"),
+        patch.object(
+            service,
+            "_extract_sections_from_rubric",
+            return_value=ExtractedSectionList(
+                sections=[
+                    ExtractedSection(name="Impact"),
+                    ExtractedSection(name="Implementation"),
+                ],
+                compatibility_score=0.75,
+            ),
+        ),
+        patch.object(
+            service,
+            "_generate_section_content",
+            side_effect=["Measurable impact.", RuntimeError("transient")],
+        ),
+    ):
+        result = service.generate_proposal_sections(db_session, proposal.id, "job-partial")
+
+    assert result.completed == 1
+    assert result.failed == 1
+    sections = (
+        db_session.query(models.ProposalSection)
+        .filter(models.ProposalSection.proposal_id == proposal.id)
+        .order_by(models.ProposalSection.order)
+        .all()
+    )
+    assert [section.status for section in sections] == [
+        models.SectionStatus.COMPLETED,
+        models.SectionStatus.FAILED,
+    ]
+    assert proposal.content == "## Impact\n\nMeasurable impact."
+
+
+def test_generate_sections_aborts_stale_job(db_session, test_user):
+    from app.services.proposal_gen import ProposalService
+
+    grant = models.Grant(
+        external_id="MULTI-STALE",
+        title="Stale Job",
+        description="Do not generate.",
+        deadline=datetime(2027, 12, 1, tzinfo=UTC),
+    )
+    db_session.add(grant)
+    db_session.commit()
+    proposal = models.Proposal(
+        organization_id=test_user.organization_id,
+        grant_id=grant.id,
+        status=models.ProposalStatus.PROCESSING,
+        generation_job_id="current-job",
+    )
+    db_session.add(proposal)
+    db_session.commit()
+
+    result = ProposalService().generate_proposal_sections(db_session, proposal.id, "stale-job")
+
+    assert result.completed == 0
+    assert result.failed == 0
+    assert (
+        db_session.query(models.ProposalSection)
+        .filter(models.ProposalSection.proposal_id == proposal.id)
+        .count()
+        == 0
+    )
+
+
+def test_extract_sections_validates_and_caps_output():
+    from app.services.proposal_gen import ProposalService
+
+    service = ProposalService()
+    grant = MagicMock()
+    grant.id = 1
+    grant.scoring_rubric = "Impact"
+    grant.eligibility_criteria = "SMEs"
+    raw = json.dumps(
+        {
+            "sections": [
+                {"name": f"Section {index}", "description": "Test", "weight": 0.1}
+                for index in range(10)
+            ],
+            "compatibility_score": 0.9,
+        }
+    )
+    with patch.object(service, "_call_json_llm", return_value=raw):
+        extracted = service._extract_sections_from_rubric(grant, "Context")
+    assert len(extracted.sections) == 7
+    assert extracted.compatibility_score == 0.9
+
+
+def test_extract_sections_falls_back_on_invalid_output():
+    from app.services.proposal_gen import ProposalService
+
+    service = ProposalService()
+    grant = MagicMock()
+    grant.id = 1
+    grant.scoring_rubric = "Impact"
+    grant.eligibility_criteria = "SMEs"
+    with patch.object(service, "_call_json_llm", return_value='{"sections": []}'):
+        extracted = service._extract_sections_from_rubric(grant, "Context")
+    assert extracted.sections[0].name == "Executive Summary"
+
+
+def test_generate_section_content_uses_structured_response():
+    from app.services.proposal_gen import ExtractedSection, ProposalService
+
+    service = ProposalService()
+    grant = MagicMock(title="Grant", description="Desc", eligibility_criteria="SMEs")
+    org = MagicMock(name="Org")
+    with patch.object(service, "_call_json_llm", return_value='{"content": "Generated body"}'):
+        content = service._generate_section_content(
+            ExtractedSection(name="Impact"), grant, org, "Context"
+        )
+    assert content == "Generated body"
+
+
+def test_regenerate_section_content_uses_existing_definition(db_session, test_user):
+    from app.services.proposal_gen import ProposalService
+
+    proposal, section = _create_sectioned_proposal(db_session, test_user)
+    service = ProposalService()
+    with (
+        patch.object(service, "_build_context", return_value="Context"),
+        patch.object(
+            service, "_generate_section_content", return_value="Regenerated body"
+        ) as generate,
+    ):
+        document = service.regenerate_section_content(db_session, proposal.id, section.id)
+    assert document["type"] == "doc"
+    assert document["content"][0]["content"][0]["text"] == "Regenerated body"
+    assert generate.call_args.args[0].name == section.name
+
+
+def test_regenerate_missing_section_raises(db_session):
+    from app.services.proposal_gen import ProposalService
+
+    with pytest.raises(ValueError, match="not found"):
+        ProposalService().regenerate_section_content(db_session, 999, 999)
+
+
+def test_call_json_llm_handles_success_empty_and_failure():
+    from app.services.proposal_gen import ProposalService
+
+    service = ProposalService()
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.return_value.choices[0].message.content = "{}"
+    with patch("app.services.proposal_gen.get_openai_client", return_value=mock_client):
+        assert (
+            service._call_json_llm("model", "system", "user", max_tokens=10, temperature=0) == "{}"
+        )
+
+    mock_client.chat.completions.create.return_value.choices[0].message.content = None
+    with (
+        patch("app.services.proposal_gen.get_openai_client", return_value=mock_client),
+        pytest.raises(RuntimeError, match="empty"),
+    ):
+        service._call_json_llm("model", "system", "user", max_tokens=10, temperature=0)
+
+    mock_client.chat.completions.create.side_effect = Exception("secret upstream detail")
+    with (
+        patch("app.services.proposal_gen.get_openai_client", return_value=mock_client),
+        pytest.raises(RuntimeError, match="LLM request failed"),
+    ):
+        service._call_json_llm("model", "system", "user", max_tokens=10, temperature=0)
+
+
+def test_section_key_normalization_and_duplicate_suffix():
+    from app.services.proposal_gen import ProposalService
+
+    seen = {}
+    assert ProposalService._unique_section_key("Impact & Scale", seen) == "impact_scale"
+    assert ProposalService._unique_section_key("Impact & Scale", seen) == "impact_scale_2"
