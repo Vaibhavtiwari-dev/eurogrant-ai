@@ -1,4 +1,6 @@
 from app import models
+from app.auth import get_current_user
+from app.main import app
 
 
 def test_get_my_organization(authenticated_client, test_user):
@@ -61,6 +63,20 @@ def test_update_my_organization_validates_threshold(authenticated_client, test_u
         json={"match_threshold": 1.5},
     )
     assert response.status_code == 422
+
+
+def test_viewer_cannot_update_organization(authenticated_client, test_user):
+    original_role = test_user.role
+    test_user.role = models.RoleEnum.VIEWER
+    try:
+        response = authenticated_client.put(
+            "/api/v1/organizations/me",
+            json={"match_threshold": 0.91},
+        )
+        assert response.status_code == 403
+    finally:
+        test_user.role = original_role
+        app.dependency_overrides[get_current_user] = lambda: test_user
 
 
 def test_get_dashboard_overview_empty(authenticated_client, test_user):

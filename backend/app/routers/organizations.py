@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import database, models, schemas
-from ..auth import get_current_user
+from ..auth import get_current_user, require_role
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 
@@ -56,7 +56,9 @@ async def get_dashboard_overview(
 async def update_my_organization(
     org_update: schemas.OrganizationUpdate,
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(
+        require_role([models.RoleEnum.ADMIN, models.RoleEnum.WRITER])
+    ),
 ) -> models.Organization:
     org = (
         db.query(models.Organization)
