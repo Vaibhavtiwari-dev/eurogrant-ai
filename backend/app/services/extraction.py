@@ -7,8 +7,11 @@ import pdfplumber
 from openai import OpenAI
 
 from ..config import settings
+from .document_validation import validate_docx_archive
 
 logger = logging.getLogger(__name__)
+MAX_PDF_PAGES = 200
+MAX_EXTRACTED_TEXT_CHARS = 2_000_000
 
 
 def redact_pii(text: str) -> str:
@@ -41,10 +44,14 @@ class ExtractionService:
         text = ""
         try:
             with pdfplumber.open(BytesIO(file_content)) as pdf:
+                if len(pdf.pages) > MAX_PDF_PAGES:
+                    raise ValueError(f"PDF exceeds the {MAX_PDF_PAGES}-page limit")
                 for page in pdf.pages:
                     page_text = page.extract_text()
                     if page_text:
                         text += page_text + "\n"
+                        if len(text) > MAX_EXTRACTED_TEXT_CHARS:
+                            raise ValueError("PDF extracted text exceeds the processing limit")
         except Exception as e:
             logger.error(f"Error extracting from PDF: {e}")
             raise
@@ -53,6 +60,7 @@ class ExtractionService:
     def _extract_from_docx(self, file_content: bytes) -> str:
         text = ""
         try:
+            validate_docx_archive(file_content)
             doc = docx.Document(BytesIO(file_content))
             for para in doc.paragraphs:
                 text += para.text + "\n"
