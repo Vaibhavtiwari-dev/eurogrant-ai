@@ -5,10 +5,12 @@ from typing import Optional
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     DateTime,
     Enum,
     Float,
     ForeignKey,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -88,6 +90,14 @@ class ProposalStatus(StrEnum):
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
+    COMPLETED_WITH_ERRORS = "completed_with_errors"
+    FAILED = "failed"
+
+
+class SectionStatus(StrEnum):
+    PENDING = "pending"
+    GENERATING = "generating"
+    COMPLETED = "completed"
     FAILED = "failed"
 
 
@@ -124,6 +134,7 @@ class Proposal(Base):
     )
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     compatibility_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    generation_job_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), onupdate=func.now(), nullable=True
@@ -131,6 +142,54 @@ class Proposal(Base):
 
     organization: Mapped["Organization"] = relationship(back_populates="proposals")
     grant: Mapped["Grant"] = relationship()
+    sections: Mapped[list["ProposalSection"]] = relationship(
+        back_populates="proposal",
+        order_by="ProposalSection.order",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class ProposalSection(Base):
+    __tablename__ = "proposal_sections"
+    __table_args__ = (
+        UniqueConstraint("proposal_id", "section_key", name="uq_proposal_sections_key"),
+        UniqueConstraint("proposal_id", "order", name="uq_proposal_sections_order"),
+        CheckConstraint('"order" >= 0', name="ck_proposal_sections_order_nonnegative"),
+        CheckConstraint("version > 0", name="ck_proposal_sections_version_positive"),
+        CheckConstraint(
+            "weight IS NULL OR (weight >= 0 AND weight <= 1)",
+            name="ck_proposal_sections_weight_range",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    proposal_id: Mapped[int] = mapped_column(
+        ForeignKey("proposals.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    section_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    weight: Mapped[float | None] = mapped_column(Float, nullable=True)
+    content_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    status: Mapped[SectionStatus] = mapped_column(
+        Enum(SectionStatus), nullable=False, default=SectionStatus.PENDING
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    generation_job_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    generation_base_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    edited_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    last_error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), onupdate=func.now(), nullable=True
+    )
+
+    proposal: Mapped["Proposal"] = relationship(back_populates="sections")
 
 
 class GrantMatch(Base):
