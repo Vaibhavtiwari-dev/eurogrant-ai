@@ -19,7 +19,8 @@ export default function SettingsPage() {
   const [passwordData, setPasswordData] = useState({ current: "", next: "", confirm: "" });
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [profileSaveSuccess, setProfileSaveSuccess] = useState(false);
+  const [passwordSaveSuccess, setPasswordSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
@@ -44,11 +45,17 @@ export default function SettingsPage() {
     e.preventDefault();
     setIsSavingProfile(true);
     setSaveError("");
-    setSaveSuccess(false);
+    setProfileSaveSuccess(false);
     try {
-      await apiFetch("/users/me", { method: "PUT", body: JSON.stringify(profile) });
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      const response = await apiFetch("/users/me", {
+        method: "PUT",
+        body: JSON.stringify({ full_name: profile.full_name }),
+      });
+      if (!response.ok) {
+        throw new Error("Profile update failed");
+      }
+      setProfileSaveSuccess(true);
+      setTimeout(() => setProfileSaveSuccess(false), 3000);
     } catch {
       setSaveError("Failed to update profile. Please try again.");
     } finally {
@@ -69,16 +76,19 @@ export default function SettingsPage() {
     }
     setIsSavingPassword(true);
     try {
-      await apiFetch("/auth/change-password", {
+      const response = await apiFetch("/auth/change-password", {
         method: "POST",
         body: JSON.stringify({
           current_password: passwordData.current,
           new_password: passwordData.next,
         }),
       });
+      if (!response.ok) {
+        throw new Error("Password update failed");
+      }
       setPasswordData({ current: "", next: "", confirm: "" });
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      setPasswordSaveSuccess(true);
+      setTimeout(() => setPasswordSaveSuccess(false), 3000);
     } catch {
       setSaveError("Failed to change password. Check your current password.");
     } finally {
@@ -163,7 +173,7 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {saveSuccess && (
+              {profileSaveSuccess && (
                 <div className="flex items-center gap-2 text-emerald-light text-xs font-bold">
                   <CheckCircle2 size={14} />
                   <span>Profile updated successfully.</span>
@@ -213,7 +223,7 @@ export default function SettingsPage() {
                 ))}
               </div>
 
-              {saveSuccess && (
+              {passwordSaveSuccess && (
                 <div className="flex items-center gap-2 text-emerald-light text-xs font-bold">
                   <CheckCircle2 size={14} />
                   <span>Password updated successfully.</span>
