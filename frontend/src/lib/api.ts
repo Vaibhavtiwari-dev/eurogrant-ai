@@ -2,7 +2,11 @@
 
 import { z } from "zod";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+
+export function apiUrl(endpoint: string): string {
+  return `${API_BASE_URL}/api/v1${endpoint}`;
+}
 
 export async function apiFetch<T>(
   endpoint: string,
@@ -31,7 +35,7 @@ export async function apiFetch<T>(
     headers["Content-Type"] = "application/json";
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
+  const response = await fetch(apiUrl(endpoint), {
     ...options,
     headers,
     credentials: "include",

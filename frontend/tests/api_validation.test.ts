@@ -14,7 +14,9 @@ const TestSchema = z.object({
 describe('apiFetch Comprehensive Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
     localStorage.clear();
+    delete process.env.NEXT_PUBLIC_API_URL;
   });
 
   it('should validate and return parsed data when schema is provided', async () => {
@@ -43,6 +45,18 @@ describe('apiFetch Comprehensive Tests', () => {
 
     const callOptions = mockFetch.mock.calls[0][1] as RequestInit;
     expect(callOptions.credentials).toBe('include');
+  });
+
+  it('should use a same-origin API path when no public API URL is configured', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+    });
+
+    const { apiFetch } = await import('../src/lib/api');
+    await apiFetch('/test');
+
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/v1/test');
   });
 
   it('should handle 401 and redirect to login', async () => {
