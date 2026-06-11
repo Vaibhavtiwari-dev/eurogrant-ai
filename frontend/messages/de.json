@@ -90,6 +90,33 @@
     "navLogin": "Anmelden",
     "navGetStarted": "Loslegen"
   },
+  "Proposals": {
+    "back": "Zurück zu Vorschlägen",
+    "proposalLabel": "Vorschlag #{id}",
+    "workspaceTitle": "Vorschlagsarbeitsbereich",
+    "grantLabel": "Ziel-Förderung #{id}",
+    "refresh": "Vorschlag aktualisieren",
+    "loadFailed": "Der Vorschlag konnte nicht geladen werden.",
+    "legacyTitle": "Älterer Vorschlagsentwurf",
+    "generating": "Vorschlagsabschnitte werden erstellt...",
+    "noSections": "Keine Vorschlagsabschnitte verfügbar.",
+    "regenerate": "Abschnitt neu erstellen",
+    "regenerateConfirm": "Diesen Abschnitt neu erstellen? Der aktuell gespeicherte Inhalt kann ersetzt werden.",
+    "regenerationStarted": "Neuerstellung des Abschnitts gestartet.",
+    "regenerationFailed": "Neuerstellung des Abschnitts konnte nicht gestartet werden.",
+    "saveFailed": "Der Abschnitt konnte nicht gespeichert werden. Ihr lokaler Entwurf bleibt erhalten.",
+    "discardUnsaved": "Ungespeicherte Änderungen verwerfen und Abschnitt wechseln?",
+    "conflict": "Dieser Abschnitt wurde auf dem Server geändert. Laden Sie die aktuelle Version neu.",
+    "reloadLatest": "Aktuelle Version laden",
+    "viewerReadOnly": "Mit Ihrer Betrachterrolle können Sie diesen Vorschlag nur lesen.",
+    "saveState": {
+      "saved": "Gespeichert",
+      "unsaved": "Ungespeichert",
+      "saving": "Speichern...",
+      "conflict": "Konflikt",
+      "failed": "Speichern fehlgeschlagen"
+    }
+  },
   "Error": {
     "title": "Systembruch / Kritischer Fehler",
     "description": "Die Anwendung hat eine unerwartete Protokollverletzung festgestellt. Die Systemdiagnose weist auf eine kritische Ausnahme hin.",

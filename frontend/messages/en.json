@@ -90,6 +90,33 @@
     "navLogin": "Login",
     "navGetStarted": "Get Started"
   },
+  "Proposals": {
+    "back": "Back to proposals",
+    "proposalLabel": "Proposal #{id}",
+    "workspaceTitle": "Proposal Workspace",
+    "grantLabel": "Target grant #{id}",
+    "refresh": "Refresh proposal",
+    "loadFailed": "The proposal could not be loaded.",
+    "legacyTitle": "Legacy proposal draft",
+    "generating": "Generating proposal sections...",
+    "noSections": "No proposal sections are available.",
+    "regenerate": "Regenerate section",
+    "regenerateConfirm": "Regenerate this section? Its current saved content may be replaced.",
+    "regenerationStarted": "Section regeneration started.",
+    "regenerationFailed": "Section regeneration could not be started.",
+    "saveFailed": "The section could not be saved. Your local draft is preserved.",
+    "discardUnsaved": "Discard unsaved changes and switch sections?",
+    "conflict": "This section changed on the server. Reload the latest version before saving again.",
+    "reloadLatest": "Reload latest",
+    "viewerReadOnly": "Your viewer role has read-only access to this proposal.",
+    "saveState": {
+      "saved": "Saved",
+      "unsaved": "Unsaved",
+      "saving": "Saving...",
+      "conflict": "Conflict",
+      "failed": "Save failed"
+    }
+  },
   "Error": {
     "title": "System Breach / Critical Failure",
     "description": "The application has encountered an unexpected protocol breach. System diagnostic indicates a critical exception.",
