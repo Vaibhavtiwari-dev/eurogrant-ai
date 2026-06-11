@@ -6,11 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "start:e2e": "node scripts/start-e2e.mjs",
     "lint": "eslint",
     "test:unit": "vitest run",
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@tiptap/extension-link": "^3.26.1",
+    "@tiptap/react": "^3.26.1",
+    "@tiptap/starter-kit": "^3.26.1",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.14.0",
     "next": "16.2.6",
