@@ -48,15 +48,9 @@ jobs:
 
       - name: Bandit (security scan)
         run: bandit -r app/ -ll
-        continue-on-error: true
-        # Advisory: surfaces findings but does not block. Promote to blocking
-        # once the bandit baseline is clean.
 
       - name: pip-audit (dependency vulnerabilities)
         run: pip-audit -r requirements.txt
-        continue-on-error: true
-        # Advisory: surfaces findings but does not block. Promote to blocking
-        # once the dependency vulnerability baseline is clean.
 
       - name: Gitleaks (secret scan)
         uses: gitleaks/gitleaks-action@v2
@@ -115,10 +109,7 @@ jobs:
         run: npm run test:unit -- --coverage
 
       - name: npm audit
-        run: npm audit --omit=dev --audit-level=high
-        continue-on-error: true
-        # Advisory: surfaces findings but does not block. Promote to blocking
-        # once the npm dependency vulnerability baseline is clean.
+        run: npm audit --omit=dev --audit-level=moderate
 
       - name: Upload frontend coverage to Codecov
         if: always()
