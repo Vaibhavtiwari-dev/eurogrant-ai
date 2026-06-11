@@ -1,9 +1,12 @@
+import json
 import re
 from datetime import datetime
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
-from .models import ProposalStatus, RoleEnum
+from .config import settings
+from .models import ProposalStatus, RoleEnum, SectionStatus
 
 
 # Auth Schemas
@@ -197,3 +200,40 @@ class ProposalOut(BaseModel):
     updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ProposalSectionOut(BaseModel):
+    id: int
+    proposal_id: int
+    section_key: str
+    name: str
+    description: str | None = None
+    weight: float | None = None
+    content_json: dict[str, Any]
+    order: int
+    status: SectionStatus
+    version: int
+    edited_at: datetime | None = None
+    edited_by: int | None = None
+    created_at: datetime
+    updated_at: datetime | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProposalSectionUpdate(BaseModel):
+    content_json: dict[str, Any]
+    expected_version: int = Field(..., ge=1)
+
+    @model_validator(mode="after")
+    def validate_content_size(self):
+        encoded = json.dumps(self.content_json, separators=(",", ":"), ensure_ascii=False).encode(
+            "utf-8"
+        )
+        if len(encoded) > settings.PROPOSAL_SECTION_MAX_JSON_BYTES:
+            raise ValueError("Section content exceeds the configured size limit")
+        return self
+
+
+class ProposalSectionRegenerate(BaseModel):
+    expected_version: int = Field(..., ge=1)
