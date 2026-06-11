@@ -1,4 +1,7 @@
 import json
+import uuid
+from contextlib import contextmanager
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -82,7 +85,7 @@ def test_extract_company_profile(db_session):
     mock_client = MagicMock()
     mock_client.chat.completions.create.return_value = mock_response
 
-    with patch("app.worker._get_openai_client", return_value=mock_client):
+    with patch("app.services.llm_client.get_openai_client", return_value=mock_client):
         extract_company_profile("Document text", org.id, db_session)
 
         db_session.expire_all()
@@ -93,3 +96,99 @@ def test_extract_company_profile(db_session):
         assert updated_org.headcount_range == "11-50"
         assert updated_org.revenue_tier == "1M-5M"
         assert updated_org.legal_entity_type == "GmbH"
+
+
+def _create_regeneration_section(db_session):
+    from app import models
+
+    suffix = uuid.uuid4().hex[:8]
+    org = models.Organization(name=f"Regeneration Org {suffix}")
+    grant = models.Grant(
+        external_id=f"REGEN-WORKER-{suffix}",
+        title="Regeneration",
+        description="Worker test",
+        deadline=datetime(2027, 1, 1, tzinfo=UTC),
+    )
+    db_session.add_all([org, grant])
+    db_session.commit()
+    proposal = models.Proposal(
+        organization_id=org.id,
+        grant_id=grant.id,
+        status=models.ProposalStatus.COMPLETED,
+    )
+    db_session.add(proposal)
+    db_session.commit()
+    section = models.ProposalSection(
+        proposal_id=proposal.id,
+        section_key="impact",
+        name="Impact",
+        content_json={
+            "type": "doc",
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [{"type": "text", "text": "Original"}],
+                }
+            ],
+        },
+        order=0,
+        status=models.SectionStatus.GENERATING,
+        generation_job_id="regen-job",
+        generation_base_version=1,
+        version=1,
+    )
+    db_session.add(section)
+    db_session.commit()
+    return proposal, section
+
+
+def test_stale_section_regeneration_does_not_call_service(db_session):
+    from app.worker import regenerate_proposal_section_task
+
+    proposal, section = _create_regeneration_section(db_session)
+
+    @contextmanager
+    def test_scope():
+        yield db_session
+
+    service = MagicMock()
+    with (
+        patch("app.database.session_scope", test_scope),
+        patch("app.services.proposal_gen.get_proposal_service", return_value=service),
+    ):
+        regenerate_proposal_section_task(proposal.id, section.id, "different-job", base_version=1)
+    service.regenerate_section_content.assert_not_called()
+
+
+def test_section_regeneration_updates_matching_version(db_session):
+    from app import models
+    from app.worker import regenerate_proposal_section_task
+
+    proposal, section = _create_regeneration_section(db_session)
+
+    @contextmanager
+    def test_scope():
+        yield db_session
+
+    service = MagicMock()
+    service.regenerate_section_content.return_value = {
+        "type": "doc",
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [{"type": "text", "text": "Regenerated"}],
+            }
+        ],
+    }
+    with (
+        patch("app.database.session_scope", test_scope),
+        patch("app.services.proposal_gen.get_proposal_service", return_value=service),
+    ):
+        regenerate_proposal_section_task(proposal.id, section.id, "regen-job", base_version=1)
+
+    db_session.expire_all()
+    updated = db_session.get(models.ProposalSection, section.id)
+    assert updated.version == 2
+    assert updated.status == models.SectionStatus.COMPLETED
+    assert updated.generation_job_id is None
+    assert db_session.get(models.Proposal, proposal.id).content == "## Impact\n\nRegenerated"
