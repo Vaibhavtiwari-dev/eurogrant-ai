@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.auth import get_password_hash
 from app.main import app
 
 client = TestClient(app)
@@ -86,3 +87,50 @@ class TestHealthEndpoint:
         body = response.json()
         assert "database" in body
         assert "redis" in body
+
+    def test_health_does_not_disclose_connection_errors(self, monkeypatch):
+        from app import database
+
+        class BrokenSession:
+            def execute(self, statement):
+                raise RuntimeError("postgresql://secret-user:secret-pass@private-db/internal")
+
+            def close(self):
+                pass
+
+        monkeypatch.setattr(database, "SessionLocal", BrokenSession)
+        response = client.get("/health")
+        body = response.json()
+
+        assert response.status_code == 503
+        assert body["database"] == "error"
+        assert "secret-pass" not in response.text
+
+
+def test_update_current_user_profile(authenticated_client, test_user, db_session):
+    response = authenticated_client.put(
+        "/api/v1/users/me",
+        json={"full_name": "Updated Name"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["full_name"] == "Updated Name"
+    db_session.refresh(test_user)
+    assert test_user.full_name == "Updated Name"
+
+
+def test_change_password(authenticated_client, test_user, db_session):
+    test_user.hashed_password = get_password_hash("OldStrong1!")
+    db_session.commit()
+
+    response = authenticated_client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "OldStrong1!", "new_password": "NewStrong2!"},
+    )
+
+    assert response.status_code == 200
+    login = client.post(
+        "/api/v1/auth/login",
+        data={"username": test_user.email, "password": "NewStrong2!"},
+    )
+    assert login.status_code == 200

@@ -1,15 +1,16 @@
 import logging
 import secrets
 
-from fastapi import APIRouter, Depends, FastAPI, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded as RateLimitExceededExc
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from . import models, schemas
+from . import database, models, schemas
 from .auth import get_current_user
 from .config import settings
 from .limiter import limiter
@@ -166,8 +167,9 @@ async def health_check():
         db.execute(text("SELECT 1"))
         db.close()
         health_status["database"] = "ok"
-    except Exception as e:
-        health_status["database"] = "error: " + str(e)
+    except Exception:
+        logger.warning("Health check: database unavailable", exc_info=True)
+        health_status["database"] = "error"
         health_status["status"] = "degraded"
     try:
         from redis import Redis as RedisClient
@@ -176,8 +178,9 @@ async def health_check():
         r.ping()
         r.close()
         health_status["redis"] = "ok"
-    except Exception as e:
-        health_status["redis"] = "error: " + str(e)
+    except Exception:
+        logger.warning("Health check: Redis unavailable", exc_info=True)
+        health_status["redis"] = "error"
         health_status["status"] = "degraded"
     # Surface lockout degradation separately: an attacker DoSing Redis must
     # not silently disable account-lockout visibility on the /health endpoint.
@@ -205,3 +208,20 @@ async def root(request: Request):
 @app.get("/api/v1/users/me", response_model=schemas.UserOut)
 async def read_users_me(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+
+@app.put("/api/v1/users/me", response_model=schemas.UserOut)
+async def update_users_me(
+    user_update: schemas.UserUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    user = db.query(models.User).filter(models.User.id == current_user.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    update_data = user_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(user, key, value)
+    db.commit()
+    db.refresh(user)
+    return user
