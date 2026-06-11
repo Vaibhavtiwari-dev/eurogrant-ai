@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from .. import database, models, schemas
 from ..auth import get_current_user, require_role
 from ..limiter import limiter
+from ..services.document_validation import UnsafeDocumentError, validate_docx_archive
 from ..services.s3 import s3_service
 from ..worker import process_company_document
 
@@ -121,6 +122,18 @@ async def upload_company_document(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Declared content-type does not match file extension",
         )
+
+    if extension == "docx":
+        file.file.seek(0)
+        file_content = file.file.read()
+        file.file.seek(0)
+        try:
+            validate_docx_archive(file_content)
+        except UnsafeDocumentError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unsafe archive: {exc}",
+            ) from exc
 
     # Generate unique S3 key
     s3_key = f"org_{current_user.organization_id}/{uuid.uuid4()}.{extension}"
