@@ -1,3 +1,8 @@
+import ipaddress
+from typing import Self
+from urllib.parse import urlparse
+
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,8 +36,37 @@ class Settings(BaseSettings):
     EMBEDDING_DIMENSION: int = 1536
     EMBEDDING_MODEL: str = "text-embedding-3-small"
     PINECONE_ENVIRONMENT: str = "us-east-1"
+    TRUSTED_PROXY_CIDRS: str = "127.0.0.1/32,::1/128"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    @model_validator(mode="after")
+    def validate_production_redis(self) -> Self:
+        if self.ENVIRONMENT != "production":
+            return self
+
+        for redis_url in (self.CELERY_BROKER_URL, self.CELERY_RESULT_BACKEND):
+            parsed = urlparse(redis_url)
+            if not parsed.password:
+                raise ValueError("Production Redis URLs must include authentication")
+            if parsed.scheme not in {"redis", "rediss"}:
+                raise ValueError("Redis URLs must use redis:// or rediss://")
+            if parsed.scheme == "redis" and not _is_private_redis_host(parsed.hostname):
+                raise ValueError(
+                    "Production Redis connections to non-private hosts must use rediss://"
+                )
+        return self
+
+
+def _is_private_redis_host(hostname: str | None) -> bool:
+    if not hostname:
+        return False
+    if hostname in {"redis", "localhost"}:
+        return True
+    try:
+        return ipaddress.ip_address(hostname).is_private
+    except ValueError:
+        return hostname.endswith(".internal") or hostname.endswith(".local")
 
 
 settings = Settings()  # type: ignore
