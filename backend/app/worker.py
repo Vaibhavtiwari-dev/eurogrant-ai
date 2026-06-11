@@ -5,6 +5,7 @@ import logging
 from celery import Celery
 from celery.schedules import crontab
 from openai import OpenAI
+from sqlalchemy.exc import IntegrityError
 
 from .config import settings
 
@@ -328,7 +329,16 @@ def scan_for_new_matches():
                                 explanation=explanation,
                             )
                             db.add(new_match)
-                            db.commit()
+                            try:
+                                db.commit()
+                            except IntegrityError:
+                                db.rollback()
+                                logger.info(
+                                    "Match already created concurrently for org %s grant %s",
+                                    org.id,
+                                    grant.id,
+                                )
+                                continue
                             db.refresh(new_match)
 
                             users = (

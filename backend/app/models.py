@@ -2,7 +2,17 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Optional
 
-from sqlalchemy import JSON, Boolean, DateTime, Enum, Float, ForeignKey, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -21,6 +31,7 @@ class Organization(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     subscription_tier: Mapped[str] = mapped_column(String(50), default="growth")
+    email_domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sector: Mapped[str | None] = mapped_column(String(255), nullable=True)
     headcount_range: Mapped[str | None] = mapped_column(String(50), nullable=True)
     revenue_tier: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -124,6 +135,9 @@ class Proposal(Base):
 
 class GrantMatch(Base):
     __tablename__ = "grant_matches"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "grant_id", name="uq_grant_matches_org_grant"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))

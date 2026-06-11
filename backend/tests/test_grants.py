@@ -1,7 +1,9 @@
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import IntegrityError
 
 from app import models
 from app.main import app
@@ -155,3 +157,34 @@ def test_get_grant_matches_success(db_session, authenticated_client):
 
         # Verify query composition
         mock_vs.search_grants.assert_called_once()
+
+
+def test_grant_match_unique_per_organization_and_grant(db_session, test_user):
+    grant = models.Grant(
+        external_id=f"UNIQUE-{test_user.id}",
+        title="Unique Match Grant",
+        description="Test",
+        deadline=datetime(2026, 12, 31, 23, 59, tzinfo=UTC),
+    )
+    db_session.add(grant)
+    db_session.commit()
+
+    db_session.add(
+        models.GrantMatch(
+            organization_id=test_user.organization_id,
+            grant_id=grant.id,
+            score=0.9,
+        )
+    )
+    db_session.commit()
+    db_session.add(
+        models.GrantMatch(
+            organization_id=test_user.organization_id,
+            grant_id=grant.id,
+            score=0.8,
+        )
+    )
+
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()

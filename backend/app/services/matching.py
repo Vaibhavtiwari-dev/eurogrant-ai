@@ -2,6 +2,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -341,4 +342,12 @@ class GrantMatchingService:
             created_at=datetime.now(UTC),
         )
         self.db.add(new_match)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            logger.info(
+                "matching: concurrent cache insert already created org=%s grant=%s",
+                org.id,
+                grant_id,
+            )
