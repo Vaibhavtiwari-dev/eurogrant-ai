@@ -71,7 +71,8 @@ class S3Service:
         # S3 branch: boto3 is blocking, so dispatch to a thread.
         def _upload() -> None:
             client = self._get_s3_client()
-            assert client is not None, "S3 client required for S3 backend"
+            if client is None:
+                raise RuntimeError("S3 client required for S3 backend")
             client.upload_fileobj(
                 file.file,
                 self.bucket_name,
@@ -103,7 +104,8 @@ class S3Service:
         # S3 branch: boto3 is blocking, so dispatch to a thread.
         def _download() -> bytes:
             client = self._get_s3_client()
-            assert client is not None, "S3 client required for S3 backend"
+            if client is None:
+                raise RuntimeError("S3 client required for S3 backend")
             response = client.get_object(
                 Bucket=self.bucket_name,
                 Key=s3_key,
