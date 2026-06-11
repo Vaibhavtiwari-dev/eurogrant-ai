@@ -3,9 +3,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MatchedGrants from '@/components/dashboard/MatchedGrants';
 
-const {mockFetch, mockToast} = vi.hoisted(() => ({
+const {mockFetch, mockToast, mockCreateProposal, mockPush} = vi.hoisted(() => ({
   mockFetch: vi.fn(),
   mockToast: {info: vi.fn(), error: vi.fn(), success: vi.fn()},
+  mockCreateProposal: vi.fn(),
+  mockPush: vi.fn(),
 }));
 
 vi.mock('@/lib/api', () => ({
@@ -16,10 +18,26 @@ vi.mock('sonner', () => ({
   toast: mockToast,
 }));
 
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({user: {role: 'writer'}}),
+}));
+
+vi.mock('@/i18n/routing', () => ({
+  useRouter: () => ({push: mockPush}),
+}));
+
+vi.mock('@/lib/proposalApi', () => ({
+  createProposal: (...args: unknown[]) => mockCreateProposal(...args),
+}));
+
 describe('MatchedGrants', () => {
   beforeEach(() => {
     mockFetch.mockReset();
     mockToast.info.mockClear();
+    mockToast.success.mockClear();
+    mockToast.error.mockClear();
+    mockCreateProposal.mockReset();
+    mockPush.mockClear();
   });
 
   it('renders the loading state on first render', () => {
@@ -76,7 +94,7 @@ describe('MatchedGrants', () => {
     });
   });
 
-  it('replaces alert() with sonner toast on Draft Proposal click', async () => {
+  it('creates and opens a proposal on Draft Proposal click', async () => {
     mockFetch.mockResolvedValueOnce([
       {
         id: 1,
@@ -94,12 +112,15 @@ describe('MatchedGrants', () => {
         },
       },
     ]);
+    mockCreateProposal.mockResolvedValueOnce({id: 42});
     const user = userEvent.setup();
     render(<MatchedGrants refreshKey={0} />);
     const draftBtn = await screen.findByText(/draft proposal/i);
     await user.click(draftBtn);
-    expect(mockToast.info).toHaveBeenCalledWith(
-      expect.stringContaining('RAG proposal generation is scheduled')
-    );
+    await waitFor(() => {
+      expect(mockCreateProposal).toHaveBeenCalledWith(1);
+      expect(mockPush).toHaveBeenCalledWith('/proposals/42');
+      expect(mockToast.success).toHaveBeenCalled();
+    });
   });
 });

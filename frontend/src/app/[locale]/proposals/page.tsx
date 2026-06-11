@@ -1,257 +1,186 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { containerVariants, itemVariants } from "@/lib/animations";
-import Sidebar from "@/components/dashboard/Sidebar";
+import {
+  AlertCircle,
+  CheckCircle2,
+  FileText,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+
 import Header from "@/components/dashboard/Header";
+import Sidebar from "@/components/dashboard/Sidebar";
 import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "@/i18n/routing";
-import { apiFetch } from "@/lib/api";
-import { FileText, Loader2, AlertCircle, ArrowUpRight, CheckCircle2, RefreshCw } from "lucide-react";
+import { Link, useRouter } from "@/i18n/routing";
+import { fetchProposals, type Proposal } from "@/lib/proposalApi";
 import { logger } from "@/utils/logger";
-import { z } from "zod";
 
-const proposalApiSchema = z.object({
-  id: z.number(),
-  grant_id: z.number(),
-  status: z.enum(["pending", "processing", "completed", "failed"]),
-  content: z.string().nullable(),
-  created_at: z.string(),
-});
-
-const proposalListApiSchema = z.array(proposalApiSchema);
-
-interface ProposalMock {
-  id: string;
-  title: string;
-  grantName: string;
-  requestedAmount: string;
-  status: "GENERATING" | "COMPLETED" | "DRAFT";
-  progress: number;
-  subtext: string;
-  updatedAt: string;
+function statusLabel(status: Proposal["status"]): string {
+  const labels: Record<Proposal["status"], string> = {
+    pending: "Queued",
+    processing: "Generating sections",
+    completed: "Ready for review",
+    completed_with_errors: "Ready with section errors",
+    failed: "Generation failed",
+  };
+  return labels[status];
 }
 
 export default function ProposalsPage() {
   const { user, loading, logout } = useAuth();
   const router = useRouter();
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [isFetching, setIsFetching] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [proposals, setProposals] = useState<ProposalMock[]>([]);
-  const [isFetching, setIsFetching] = useState(true);
+
+  const loadProposals = async () => {
+    setIsFetching(true);
+    try {
+      setProposals(await fetchProposals());
+      setError(null);
+    } catch (loadError) {
+      logger.error("Failed to load proposals:", loadError);
+      setError("The proposal workspace could not be loaded.");
+    } finally {
+      setIsFetching(false);
+    }
+  };
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Fetch / Simulate active proposals based on organization uploads
   useEffect(() => {
-    const fetchProposals = async () => {
-      if (!user) return;
-      try {
-        const res = await apiFetch("/proposals");
-        if (res.ok) {
-          const data = proposalListApiSchema.parse(await res.json());
-          if (Array.isArray(data) && data.length > 0) {
-            const formatted: ProposalMock[] = data.map((prop) => ({
-              id: `PROP-${prop.id.toString().padStart(4, '0')}`,
-              title: prop.content ? prop.content.split('\n')[0].replace(/#/g, '').trim() : "Draft Proposal",
-              grantName: `Grant ID: ${prop.grant_id}`,
-              requestedAmount: "TBD", // Extract from content later or add to DB
-              status: prop.status === "pending" || prop.status === "processing" ? "GENERATING" : prop.status === "completed" ? "COMPLETED" : "DRAFT",
-              progress: prop.status === "completed" ? 100 : prop.status === "processing" ? 65 : prop.status === "failed" ? 0 : 10,
-              subtext: prop.status === "completed" ? "Ready for Human Polish" : prop.status === "failed" ? "Generation Failed" : "Assembling Sections...",
-              updatedAt: new Date(prop.created_at).toLocaleDateString()
-            }));
-            setProposals(formatted);
-          } else {
-            setProposals([]);
-          }
-        }
-      } catch (err) {
-        logger.error("Failed to load proposals:", err);
-      } finally {
-        setIsFetching(false);
-      }
-    };
-    fetchProposals();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (user) void loadProposals();
   }, [user]);
 
   if (loading || !user) {
     return (
-      <div className="min-h-screen bg-surface flex items-center justify-center">
-        <div className="flex flex-col items-center gap-6">
-          <div className="w-16 h-16 border-4 border-emerald/10 border-t-emerald-light rounded-full animate-spin"></div>
-          <p className="text-emerald-light/60 font-bold uppercase tracking-[0.2em] text-xs animate-pulse">Syncing Proposals Workspace...</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-surface">
+        <Loader2 className="h-10 w-10 animate-spin text-emerald-light" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background text-on-background selection:bg-emerald/10">
-      <Sidebar 
+    <div className="min-h-screen bg-background text-on-background">
+      <Sidebar
         isMobile={isMobile}
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
         setIsUploadModalOpen={() => {}}
         logout={logout}
       />
+      <Header user={user} setIsSidebarOpen={setIsSidebarOpen} />
 
-      <Header 
-        user={user}
-        setIsSidebarOpen={setIsSidebarOpen}
-      />
-
-      <motion.main 
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="relative z-10 md:ml-64 pt-12 px-12 pb-32 min-h-screen hero-gradient"
+      <motion.main
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="min-h-screen px-6 pb-24 pt-12 md:ml-64 md:px-12"
       >
-        <div className="max-w-5xl mx-auto">
-          {/* Header */}
-          <div className="mb-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-10 flex flex-wrap items-center justify-between gap-5">
             <div>
-              <h1 className="text-4xl font-bold text-on-surface mb-3 flex items-center gap-4">
-                <FileText className="text-emerald-light" size={32} />
+              <h1 className="flex items-center gap-3 text-4xl font-bold text-white">
+                <FileText className="text-emerald-light" />
                 My Proposals
               </h1>
-              <p className="text-on-surface-variant text-sm">
-                Manage, edit, and track your AI-drafted European grant proposal applications.
+              <p className="mt-3 text-sm text-slate-400">
+                Review AI-generated grant proposals and edit individual sections.
               </p>
             </div>
             <button
-              onClick={() => router.refresh()}
-              className="px-4 py-2.5 rounded-lg bg-surface hover:bg-surface-variant border border-white/5 hover:border-white/10 text-on-surface-variant hover:text-on-surface text-xs font-semibold flex items-center gap-2 transition-all active:scale-95 shadow"
+              type="button"
+              onClick={() => void loadProposals()}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-semibold text-slate-300 hover:bg-white/10"
             >
-              <RefreshCw size={14} /> Refresh Workspace
+              <RefreshCw size={14} />
+              Refresh
             </button>
           </div>
 
-          {/* Active Proposals list */}
+          {error && (
+            <div className="mb-6 flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-red-200">
+              <AlertCircle size={18} />
+              {error}
+            </div>
+          )}
+
           {isFetching ? (
-            <div className="flex flex-col items-center justify-center py-32">
-              <Loader2 className="h-10 w-10 text-emerald animate-spin mb-4" />
-              <p className="text-on-surface-variant text-sm tracking-wider animate-pulse">Loading active proposal drafts...</p>
+            <div className="flex justify-center py-28">
+              <Loader2 className="h-9 w-9 animate-spin text-emerald-light" />
             </div>
           ) : proposals.length === 0 ? (
-            <div className="text-center py-24 premium-card bg-surface/20 backdrop-blur-md rounded-2xl border border-dashed border-white/10">
-              <AlertCircle className="h-12 w-12 text-on-surface-variant/40 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-on-surface mb-2">No active proposals found</h3>
-              <p className="text-on-surface-variant max-w-sm mx-auto text-xs leading-relaxed mb-8">
-                To begin generating a structured EIC or EuroGrant proposal, upload your company documents on the main Dashboard page.
+            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-16 text-center">
+              <FileText className="mx-auto mb-4 h-12 w-12 text-slate-600" />
+              <h2 className="text-xl font-bold text-white">No proposals yet</h2>
+              <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
+                Open Semantic Matches on the dashboard and select Draft Proposal for a
+                matching grant.
               </p>
               <button
+                type="button"
                 onClick={() => router.push("/dashboard")}
-                className="px-6 py-3 bg-emerald hover:bg-emerald-light text-surface font-semibold rounded-lg transition-all shadow-md active:scale-95 flex items-center gap-2 mx-auto"
+                className="mt-6 rounded-lg bg-emerald px-5 py-2.5 text-sm font-bold text-surface"
               >
-                Go to Dashboard
+                Open dashboard
               </button>
             </div>
           ) : (
-            <div className="space-y-6">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/60 border-b border-white/5 pb-4">
-                Active Drafts & Generations
-              </h2>
-
-              <div className="grid grid-cols-1 gap-6">
-                {proposals.map((prop) => (
-                  <motion.div 
-                    key={prop.id}
-                    variants={itemVariants}
-                    className="premium-card p-8 bg-surface/30 rounded-2xl border border-white/5 shadow-lg group relative overflow-hidden"
+            <div className="space-y-4">
+              {proposals.map((proposal) => {
+                const terminal =
+                  proposal.status === "completed" ||
+                  proposal.status === "completed_with_errors";
+                return (
+                  <Link
+                    key={proposal.id}
+                    href={`/proposals/${proposal.id}`}
+                    className="block rounded-2xl border border-white/10 bg-surface/30 p-6 transition hover:border-emerald/30 hover:bg-surface/50"
+                    data-testid={`proposal-card-${proposal.id}`}
                   >
-                    <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-6">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-[10px] font-bold text-emerald-light uppercase tracking-widest bg-emerald/10 border border-emerald/20 px-3 py-0.5 rounded-full">
-                            {prop.id}
-                          </span>
-                          <span className="text-[10px] font-semibold text-on-surface-variant/60">
-                            Updated {prop.updatedAt}
-                          </span>
-                        </div>
-                        <h3 className="text-2xl font-bold text-on-surface leading-tight">
-                          {prop.title}
-                        </h3>
-                        <p className="text-xs text-on-surface-variant font-medium mt-1">
-                          Target Grant: <span className="text-on-surface font-semibold">{prop.grantName}</span>
+                        <span className="text-xs font-bold uppercase tracking-widest text-emerald-light">
+                          Proposal #{proposal.id}
+                        </span>
+                        <h2 className="mt-2 text-xl font-bold text-white">
+                          Grant #{proposal.grant_id}
+                        </h2>
+                        <p className="mt-2 text-xs text-slate-500">
+                          Created {new Date(proposal.created_at).toLocaleDateString()}
                         </p>
                       </div>
-
-                      <div className="flex flex-col items-end gap-2 text-right">
-                        <div className="text-base font-bold text-emerald-light bg-emerald/10 border border-emerald/20 px-3 py-1 rounded-lg">
-                          Funding Request: {prop.requestedAmount}
-                        </div>
-                        
-                        {prop.status === "GENERATING" ? (
-                          <span className="text-[10px] font-bold text-amber bg-amber/10 border border-amber/20 px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5">
-                            <Loader2 className="animate-spin h-3 w-3" />
-                            {prop.subtext}
-                          </span>
+                      <span
+                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                          terminal
+                            ? "border-emerald/30 bg-emerald/10 text-emerald-light"
+                            : proposal.status === "failed"
+                              ? "border-red-500/30 bg-red-500/10 text-red-300"
+                              : "border-amber/30 bg-amber/10 text-amber-light"
+                        }`}
+                      >
+                        {terminal ? (
+                          <CheckCircle2 size={14} />
+                        ) : proposal.status === "failed" ? (
+                          <AlertCircle size={14} />
                         ) : (
-                          <span className="text-[10px] font-bold text-emerald-light bg-emerald/10 border border-emerald/20 px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5">
-                            <CheckCircle2 size={12} />
-                            {prop.subtext}
-                          </span>
+                          <Loader2 size={14} className="animate-spin" />
                         )}
-                      </div>
+                        {statusLabel(proposal.status)}
+                      </span>
                     </div>
-
-                    {/* Progress slider */}
-                    <div className="space-y-2 border-t border-white/5 pt-6">
-                      <div className="flex justify-between text-xs font-semibold text-on-surface-variant">
-                        <span>Generation & Structuring Progress</span>
-                        <span className={prop.status === "GENERATING" ? "text-amber font-bold" : "text-emerald font-bold"}>{prop.progress}%</span>
-                      </div>
-                      <div className="w-full bg-background/60 h-2.5 rounded-full overflow-hidden border border-white/5">
-                        <motion.div 
-                          initial={{ width: 0 }}
-                          animate={{ width: `${prop.progress}%` }}
-                          transition={{ duration: 1.2, ease: "easeOut" }}
-                          className={`h-full rounded-full ${
-                            prop.status === "GENERATING" 
-                              ? "bg-gradient-to-r from-amber to-amber-light shadow-[0_0_10px_rgba(245,158,11,0.2)] animate-pulse" 
-                              : "bg-gradient-to-r from-emerald to-emerald-light shadow-[0_0_10px_rgba(16,185,129,0.2)]"
-                          }`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Actions button */}
-                    <div className="mt-8 flex justify-end gap-4">
-                      {prop.status === "GENERATING" ? (
-                        <button 
-                          disabled
-                          className="px-5 py-2.5 rounded-lg bg-surface/50 border border-white/5 text-on-surface-variant/40 text-xs font-semibold cursor-not-allowed flex items-center gap-2"
-                        >
-                          Assembling Sections...
-                        </button>
-                      ) : (
-                        <>
-                          <button 
-                            className="px-5 py-2.5 rounded-lg bg-surface hover:bg-surface-variant border border-white/5 hover:border-white/10 text-on-surface-variant hover:text-on-surface text-xs font-semibold transition-all active:scale-95"
-                          >
-                            Edit Draft
-                          </button>
-                          <button 
-                            className="px-5 py-2.5 rounded-lg bg-emerald hover:bg-emerald-light text-surface font-semibold text-xs transition-all active:scale-95 shadow flex items-center gap-1.5"
-                          >
-                            Export PDF <ArrowUpRight size={14} />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>

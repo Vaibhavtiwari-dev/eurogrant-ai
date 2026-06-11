@@ -7,6 +7,9 @@ import { apiFetch } from "@/lib/api";
 import { z } from "zod";
 import { toast } from "sonner";
 import { logger } from "@/utils/logger";
+import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "@/i18n/routing";
+import { createProposal } from "@/lib/proposalApi";
 
 const GrantSchema = z.object({
   id: z.number(),
@@ -39,9 +42,31 @@ interface MatchedGrantsProps {
 }
 
 export default function MatchedGrants({ refreshKey = 0 }: MatchedGrantsProps) {
+  const { user } = useAuth();
+  const router = useRouter();
   const [matches, setMatches] = useState<GrantMatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [creatingGrantId, setCreatingGrantId] = useState<number | null>(null);
+
+  const handleCreateProposal = async (grantId: number) => {
+    if (creatingGrantId !== null || user?.role === "viewer") return;
+    setCreatingGrantId(grantId);
+    try {
+      const proposal = await createProposal(grantId);
+      toast.success("Proposal generation started.");
+      router.push(`/proposals/${proposal.id}`);
+    } catch (creationError) {
+      logger.error("Failed to create proposal:", creationError);
+      toast.error(
+        creationError instanceof Error
+          ? creationError.message
+          : "Proposal generation could not be started.",
+      );
+    } finally {
+      setCreatingGrantId(null);
+    }
+  };
 
   const fetchMatches = useCallback(async () => {
     setIsLoading(true);
@@ -191,11 +216,17 @@ export default function MatchedGrants({ refreshKey = 0 }: MatchedGrantsProps) {
                       </a>
                     )}
                     <button
-                      onClick={() => toast.info("RAG proposal generation is scheduled for implementation in Phase 10!")}
-                      className="flex-1 md:flex-none py-3 px-4 rounded-lg bg-copper text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md shadow-copper/15 group-hover:shadow-copper/30"
+                      onClick={() => void handleCreateProposal(item.grant.id)}
+                      disabled={creatingGrantId !== null || user?.role === "viewer"}
+                      title={user?.role === "viewer" ? "Viewer accounts cannot create proposals" : undefined}
+                      className="flex-1 md:flex-none py-3 px-4 rounded-lg bg-copper text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-md shadow-copper/15 group-hover:shadow-copper/30 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <span>Draft Proposal</span>
-                      <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                      {creatingGrantId === item.grant.id ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                      )}
+                      <span>{creatingGrantId === item.grant.id ? "Starting..." : "Draft Proposal"}</span>
                     </button>
                   </div>
                 </div>
