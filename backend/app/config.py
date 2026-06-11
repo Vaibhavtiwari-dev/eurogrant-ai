@@ -2,7 +2,7 @@ import ipaddress
 from typing import Self
 from urllib.parse import urlparse
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,6 +20,13 @@ class Settings(BaseSettings):
 
     OPENAI_API_KEY: str | None = None
     OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+    PROPOSAL_LLM_MODEL: str = "gpt-4o-mini"
+    PROPOSAL_SECTION_MODEL: str = "gpt-4o-mini"
+    PROPOSAL_MAX_SECTIONS: int = Field(default=7, ge=1, le=10)
+    PROPOSAL_LLM_TIMEOUT_SECONDS: int = Field(default=60, ge=5, le=180)
+    PROPOSAL_SECTION_MAX_TOKENS: int = Field(default=1800, ge=256, le=4096)
+    PROPOSAL_CONTEXT_MAX_CHARS: int = Field(default=20000, ge=1000, le=100000)
+    PROPOSAL_SECTION_MAX_JSON_BYTES: int = Field(default=200000, ge=1000, le=1000000)
 
     STORAGE_BACKEND: str = "s3"
     AWS_ACCESS_KEY_ID: str | None = None
