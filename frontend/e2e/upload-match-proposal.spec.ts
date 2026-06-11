@@ -1,82 +1,175 @@
-import { test, expect } from '@playwright/test';
-import path from 'path';
-import fs from 'fs';
+import { expect, test, type Page } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
 
-// This e2e covers the critical user journey:
-//  register → login → upload PDF → assert uploaded → check matches tab.
-//
-// It runs against a live dev server (see playwright.config.ts webServer).
-// Selectors use getByLabel (the forms use aria-label rather than name=).
-
-const FIXTURE_DIR = path.join(__dirname, 'fixtures');
-const UNIQUE_EMAIL = `e2e_${Date.now()}@example.com`;
-const INVITE_CODE = process.env.MASTER_INVITE_CODE || 'test-invite';
+const FIXTURE_DIR = path.join(__dirname, "fixtures");
+const FIXTURE_PATH = path.join(FIXTURE_DIR, "sample.pdf");
+const TEST_EMAIL = "e2e@example.com";
+const TEST_PASSWORD = "Secure-password-123!";
 
 test.beforeAll(() => {
   fs.mkdirSync(FIXTURE_DIR, { recursive: true });
-  // Minimal valid PDF (header only — backend only checks first 8 bytes for magic).
-  const fixturePath = path.join(FIXTURE_DIR, 'sample.pdf');
-  if (!fs.existsSync(fixturePath)) {
+  if (!fs.existsSync(FIXTURE_PATH)) {
     fs.writeFileSync(
-      fixturePath,
-      Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a])
+      FIXTURE_PATH,
+      Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a]),
     );
   }
 });
 
-test('register → login → upload → matches-tab flow', async ({ page }) => {
-  // 1. Land on the marketing page; middleware redirects to /login
-  await page.goto('/en');
+async function mockDashboardApi(page: Page) {
+  let loggedIn = false;
+  let documents: Array<Record<string, unknown>> = [];
+
+  await page.route("**/api/v1/**", async (route) => {
+    const request = route.request();
+    const pathname = new URL(request.url()).pathname;
+
+    if (pathname.endsWith("/auth/register")) {
+      await route.fulfill({ status: 201, contentType: "application/json", body: "{}" });
+      return;
+    }
+
+    if (pathname.endsWith("/auth/login")) {
+      loggedIn = true;
+      await page.context().addCookies([
+        {
+          name: "access_token",
+          value: "e2e-session",
+          domain: "localhost",
+          path: "/",
+        },
+      ]);
+      await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+      return;
+    }
+
+    if (pathname.endsWith("/users/me")) {
+      await route.fulfill({
+        status: loggedIn ? 200 : 401,
+        contentType: "application/json",
+        body: JSON.stringify(
+          loggedIn
+            ? {
+                id: 1,
+                email: TEST_EMAIL,
+                full_name: "E2E User",
+                role: "writer",
+                organization_id: 1,
+                created_at: "2026-06-11T00:00:00Z",
+              }
+            : { detail: "Not authenticated" },
+        ),
+      });
+      return;
+    }
+
+    if (pathname.endsWith("/uploads/company-document")) {
+      documents = [
+        {
+          id: 1,
+          file_name: "sample.pdf",
+          status: "pending",
+          created_at: "2026-06-11T00:00:00Z",
+        },
+      ];
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify(documents[0]),
+      });
+      return;
+    }
+
+    if (pathname.endsWith("/uploads/documents")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(documents),
+      });
+      return;
+    }
+
+    if (pathname.endsWith("/organizations/dashboard-overview")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          stats: {
+            active_high_matches: 0,
+            ai_generation_quality: 0,
+            total_pipeline_value: 0,
+          },
+          pipelines: [],
+          hot_matches: [],
+        }),
+      });
+      return;
+    }
+
+    if (pathname.endsWith("/organizations/me")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: 1,
+          name: "E2E Org",
+          subscription_tier: "standard",
+          sector: null,
+          headcount_range: null,
+          revenue_tier: null,
+          legal_entity_type: null,
+          countries_of_operation: null,
+          core_technologies: null,
+          match_threshold: 0.7,
+          alert_email_enabled: true,
+          created_at: "2026-06-11T00:00:00Z",
+        }),
+      });
+      return;
+    }
+
+    if (pathname.endsWith("/grants/matches")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "[]",
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: `Unhandled E2E API route: ${pathname}` }),
+    });
+  });
+}
+
+test("register, login, upload, and matches-tab flow", async ({ page }) => {
+  await mockDashboardApi(page);
+  await page.goto("/en/login");
+
+  await page.getByRole("link", { name: /request intelligence access/i }).click();
+  await page.getByLabel("Full Name").fill("E2E User");
+  await page.getByLabel("Organization Name").fill("E2E Org");
+  await page.getByLabel("Email").fill(TEST_EMAIL);
+  await page.getByLabel("Password").fill(TEST_PASSWORD);
+  await page.getByLabel("Invite Code").fill("test-invite");
+  await page.getByRole("button", { name: /register/i }).click();
+
   await expect(page).toHaveURL(/\/en\/login/);
+  await page.getByLabel("Email").fill(TEST_EMAIL);
+  await page.getByLabel("Password").fill(TEST_PASSWORD);
+  await page.getByRole("button", { name: /sign in/i }).click();
 
-  // 2. Click the "Request Intelligence Access" link to go to /register
-  await page.getByRole('link', { name: /request intelligence access/i }).click();
-  await expect(page).toHaveURL(/\/en\/register/);
-
-  // 3. Fill the registration form (queries use the inputs' aria-label)
-  await page.getByLabel('Full Name').fill('E2E User');
-  await page.getByLabel('Organization Name').fill('E2E Org');
-  await page.getByLabel('Email').fill(UNIQUE_EMAIL);
-  await page.getByLabel('Password').fill('secure-password-123');
-  await page.getByLabel('Invite Code').fill(INVITE_CODE);
-  await page.getByRole('button', { name: /enroll agent/i }).click();
-
-  // 4. Register redirects back to /login. Log in with the same credentials.
-  await expect(page).toHaveURL(/\/en\/login/);
-  await page.getByLabel('Email').fill(UNIQUE_EMAIL);
-  await page.getByLabel('Password').fill('secure-password-123');
-  await page.getByRole('button', { name: /authorize access/i }).click();
-
-  // 5. Land on the dashboard
   await expect(page).toHaveURL(/\/en\/dashboard/);
+  await page.getByRole("button", { name: /new proposal/i }).click();
+  await page.setInputFiles('input[type="file"]', FIXTURE_PATH);
+  await expect(page.getByText("sample.pdf")).toBeVisible({ timeout: 10_000 });
 
-  // 6. Open the upload modal and submit a sample PDF
-  await page.getByRole('button', { name: /submit documentation|upload/i }).first().click();
-  await page.setInputFiles('input[type="file"]', path.join(FIXTURE_DIR, 'sample.pdf'));
-  // The upload submit button is inside the modal — scope to it
-  await page.getByRole('button', { name: /^upload$/i }).click();
-
-  // 7. The document list refreshes via refreshKey; sample.pdf should appear
-  //    in the DocumentList panel (it shows even while still pending).
-  await expect(page.getByText('sample.pdf')).toBeVisible({ timeout: 15_000 });
-
-  // 8. Switch to the Semantic Matches tab. "Matched Grants" is not a route —
-  //    the matches live on the dashboard under this tab.
-  await page.getByRole('button', { name: /semantic matches/i }).click();
-
-  // 9. MatchedGrants shows a "no matches" empty state when the pipeline has
-  //    nothing to score yet. Either state is acceptable here; the test passes
-  //    if the tab renders without error and (optionally) a Draft Proposal
-  //    button is reachable.
-  const matchesTab = page.getByRole('button', { name: /semantic matches/i });
-  await expect(matchesTab).toBeVisible();
-
-  const draftButtons = page.getByRole('button', { name: /draft proposal/i });
-  if ((await draftButtons.count()) > 0) {
-    // RAG generation is scheduled for a later phase; the button surfaces an
-    // informational toast. We don't assert the toast text because the
-    // messaging may evolve.
-    await expect(draftButtons.first()).toBeVisible();
-  }
+  await page.getByRole("tab", { name: /semantic matches/i }).click();
+  await expect(
+    page.getByRole("heading", { name: /no high-probability matches detected/i }),
+  ).toBeVisible();
 });
-

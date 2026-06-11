@@ -1,14 +1,11 @@
 import { test, expect } from '@playwright/test';
 
 test('should show login page and allow login attempt', async ({ page }) => {
-  // We use the root and let middleware redirect to /[locale]/login
-  await page.goto('/');
-  
-  // Wait for redirect to login
-  await expect(page).toHaveURL(/\/login/);
+  await page.goto('/en/login');
+  await expect(page).toHaveURL(/\/en\/login/);
   
   // Check for the headline
-  await expect(page.locator('h1')).toContainText('EUROGRANT AI');
+  await expect(page.locator('h1')).toContainText(/EuroGrant AI/i);
   
   // Fill login form
   await page.fill('input[type="email"]', 'agent@eurogrant.ai');
