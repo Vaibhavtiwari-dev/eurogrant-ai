@@ -12,9 +12,18 @@ function isPublicPath(pathname: string) {
 }
 
 function buildCsp(nonce: string): string {
-  const connectSources = ["'self'", 'https://eurogrant.ai'];
-  if (process.env.NODE_ENV !== 'production') {
-    connectSources.push('http://localhost:8000', 'http://127.0.0.1:8000');
+  const connectSources = new Set(["'self'", 'https://eurogrant.ai']);
+  const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  if (configuredApiUrl) {
+    try {
+      const apiUrl = new URL(configuredApiUrl);
+      if (apiUrl.protocol === 'http:' || apiUrl.protocol === 'https:') {
+        connectSources.add(apiUrl.origin);
+      }
+    } catch {
+      // Invalid deployment configuration remains blocked by the CSP.
+    }
   }
 
   return [
@@ -23,7 +32,7 @@ function buildCsp(nonce: string): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    `connect-src ${connectSources.join(' ')}`,
+    `connect-src ${Array.from(connectSources).join(' ')}`,
     "frame-ancestors 'none'",
     "form-action 'self'",
     "base-uri 'self'",
