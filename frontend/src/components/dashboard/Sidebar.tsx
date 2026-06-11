@@ -9,7 +9,8 @@ import {
   FileText, 
   Settings,
   Plus,
-  Shield
+  Shield,
+  LogOut
 } from "lucide-react";
 
 interface SidebarProps {
@@ -31,7 +32,13 @@ const sidebarVariants = {
   }
 };
 
-export default function Sidebar({ isMobile, isSidebarOpen, setIsUploadModalOpen }: SidebarProps) {
+export default function Sidebar({
+  isMobile,
+  isSidebarOpen,
+  setIsSidebarOpen,
+  setIsUploadModalOpen,
+  logout,
+}: SidebarProps) {
   const t = useTranslations("Sidebar");
   const pathname = usePathname();
 
@@ -76,6 +83,20 @@ export default function Sidebar({ isMobile, isSidebarOpen, setIsUploadModalOpen 
 
       <div className="px-4 mt-auto">
         <SidebarItem icon={<Settings size={20} />} label={t("settings")} href="/settings" active={pathname === "/settings"} />
+        <button
+          type="button"
+          onClick={() => {
+            setIsSidebarOpen(false);
+            void logout();
+          }}
+          className="relative w-full flex items-center gap-4 px-5 py-3.5 rounded-lg font-semibold text-on-surface-variant hover:text-white transition-all duration-200 group cursor-pointer"
+        >
+          <LogOut
+            size={20}
+            className="opacity-60 group-hover:opacity-100 group-hover:text-emerald-light transition-all"
+          />
+          <span className="text-sm tracking-tight">Sign Out</span>
+        </button>
       </div>
     </motion.nav>
   );
@@ -93,10 +114,12 @@ function SidebarItem({
   active?: boolean 
 }) {
   return (
-    <Link href={href} passHref legacyBehavior>
-      <motion.a 
+    <motion.div
         whileHover={{ x: 4 }}
         whileTap={{ scale: 0.98 }}
+    >
+      <Link
+        href={href}
         className={`relative w-full flex items-center gap-4 px-5 py-3.5 rounded-lg font-semibold transition-all duration-200 group cursor-pointer ${
           active 
             ? "text-emerald-light bg-emerald/5 border border-emerald/10 shadow-sm" 
@@ -115,7 +138,7 @@ function SidebarItem({
             animate={{ opacity: 1 }}
           />
         )}
-      </motion.a>
-    </Link>
+      </Link>
+    </motion.div>
   );
 }
