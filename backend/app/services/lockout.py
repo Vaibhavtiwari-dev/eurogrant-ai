@@ -12,6 +12,7 @@ class LockoutService:
     def __init__(self) -> None:
         redis_url = settings.CELERY_BROKER_URL
         self._degraded: bool = False
+        self.redis: Redis | None
         try:
             self.redis = Redis.from_url(redis_url, decode_responses=True)
             self.redis.ping()
@@ -33,26 +34,28 @@ class LockoutService:
         """True if Redis is unavailable and lockout enforcement is disabled."""
         return self._degraded
 
-    def _make_key(self, email: str) -> tuple[str, str]:
-        h = hashlib.sha256(email.lower().encode()).hexdigest()
+    def _make_key(self, email: str, client_identifier: str) -> tuple[str, str]:
+        identity = f"{email.lower()}|{client_identifier}"
+        h = hashlib.sha256(identity.encode()).hexdigest()
         return "lockout:count:" + h, "lockout:locked:" + h
 
-    def check_locked(self, email: str) -> bool:
+    def check_locked(self, email: str, client_identifier: str) -> bool:
         if not self.redis:
             return False
-        _, lock_key = self._make_key(email)
+        _, lock_key = self._make_key(email, client_identifier)
         return int(self.redis.exists(lock_key)) > 0  # type: ignore
 
     def record_failure(
         self,
         email: str,
+        client_identifier: str,
         max_attempts: int = 5,
         window_seconds: int = 900,
         lock_duration: int = 1800,
     ) -> bool:
         if not self.redis:
             return False
-        count_key, lock_key = self._make_key(email)
+        count_key, lock_key = self._make_key(email, client_identifier)
         attempts = int(self.redis.incr(count_key))  # type: ignore
         if attempts == 1:
             self.redis.expire(count_key, window_seconds)
@@ -62,10 +65,10 @@ class LockoutService:
             return True
         return False
 
-    def reset(self, email: str) -> None:
+    def reset(self, email: str, client_identifier: str) -> None:
         if not self.redis:
             return
-        count_key, lock_key = self._make_key(email)
+        count_key, lock_key = self._make_key(email, client_identifier)
         self.redis.delete(count_key, lock_key)
 
 

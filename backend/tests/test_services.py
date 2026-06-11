@@ -1,7 +1,7 @@
 import pytest
 from pdfplumber.utils.exceptions import PdfminerException
 
-from app.services.extraction import ExtractionService, redact_pii
+from app.services.extraction import MAX_PDF_PAGES, ExtractionService, redact_pii
 
 
 def test_redact_pii():
@@ -16,6 +16,19 @@ def test_extract_text_pdf_invalid():
     service = ExtractionService()
     with pytest.raises(PdfminerException):
         service.extract_text(b"some invalid content", "application/pdf")
+
+
+def test_extract_text_rejects_excessive_pdf_page_count(monkeypatch):
+    from unittest.mock import MagicMock
+
+    pdf = MagicMock()
+    pdf.pages = [MagicMock()] * (MAX_PDF_PAGES + 1)
+    pdf_context = MagicMock()
+    pdf_context.__enter__.return_value = pdf
+    monkeypatch.setattr("app.services.extraction.pdfplumber.open", lambda _: pdf_context)
+
+    with pytest.raises(ValueError, match="page limit"):
+        ExtractionService().extract_text(b"%PDF", "application/pdf")
 
 
 def test_extract_text_unsupported():
@@ -154,17 +167,59 @@ class TestLockoutService:
         from app.services.lockout import lockout_service
 
         # All methods should return gracefully
-        assert lockout_service.check_locked("test@example.com") is False
-        assert lockout_service.record_failure("test@example.com") is False
-        lockout_service.reset("test@example.com")  # Should not raise
+        assert lockout_service.check_locked("test@example.com", "127.0.0.1") is False
+        assert lockout_service.record_failure("test@example.com", "127.0.0.1") is False
+        lockout_service.reset("test@example.com", "127.0.0.1")  # Should not raise
 
     def test_lockout_uses_different_keys_per_email(self):
         from app.services.lockout import lockout_service
 
         # Test the key derivation (doesn't need Redis)
-        count_key_1, lock_key_1 = lockout_service._make_key("user1@example.com")
-        count_key_2, lock_key_2 = lockout_service._make_key("user2@example.com")
+        count_key_1, lock_key_1 = lockout_service._make_key("user1@example.com", "192.0.2.1")
+        count_key_2, lock_key_2 = lockout_service._make_key("user2@example.com", "192.0.2.1")
         assert count_key_1 != count_key_2
         assert lock_key_1 != lock_key_2
         assert "lockout:" in count_key_1
         assert "lockout:" in lock_key_1
+
+    def test_lockout_is_scoped_to_email_and_client(self):
+        from app.services.lockout import lockout_service
+
+        first = lockout_service._make_key("user@example.com", "192.0.2.1")
+        second = lockout_service._make_key("user@example.com", "198.51.100.9")
+
+        assert first != second
+
+    def test_lock_from_one_client_does_not_lock_another_client(self):
+        from app.services.lockout import LockoutService
+
+        class FakeRedis:
+            def __init__(self):
+                self.values = {}
+
+            def incr(self, key):
+                self.values[key] = int(self.values.get(key, 0)) + 1
+                return self.values[key]
+
+            def expire(self, key, seconds):
+                return True
+
+            def setex(self, key, seconds, value):
+                self.values[key] = value
+
+            def delete(self, *keys):
+                for key in keys:
+                    self.values.pop(key, None)
+
+            def exists(self, key):
+                return int(key in self.values)
+
+        service = LockoutService.__new__(LockoutService)
+        service.redis = FakeRedis()
+        service._degraded = False
+
+        for _ in range(5):
+            service.record_failure("user@example.com", "192.0.2.1")
+
+        assert service.check_locked("user@example.com", "192.0.2.1") is True
+        assert service.check_locked("user@example.com", "198.51.100.9") is False

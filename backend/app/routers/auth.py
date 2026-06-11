@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from .. import auth, database, models, schemas
 from ..config import settings
-from ..limiter import limiter
+from ..limiter import get_real_ip, limiter
 from ..services.lockout import lockout_service
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -40,20 +40,27 @@ def register(
         .first()
     )
     if not org:
-        org = models.Organization(name=user_in.organization_name)
+        email_domain = user_in.email.rsplit("@", 1)[-1].lower()
+        org = models.Organization(name=user_in.organization_name, email_domain=email_domain)
         db.add(org)
         db.commit()
         db.refresh(org)
     else:
-        # Prevent org name squatting: if joining an existing org,
-        # the email domain should loosely match the org name.
-        email_domain = user_in.email.split("@")[-1].lower()
-        org_name_normalized = user_in.organization_name.lower().replace(" ", "").replace("-", "")
-        if org_name_normalized not in email_domain and email_domain not in org_name_normalized:
+        email_domain = user_in.email.rsplit("@", 1)[-1].lower()
+        existing_domains = {
+            existing_user.email.rsplit("@", 1)[-1].lower()
+            for existing_user in db.query(models.User)
+            .filter(models.User.organization_id == org.id)
+            .all()
+        }
+        approved_domains = existing_domains | ({org.email_domain} if org.email_domain else set())
+        if approved_domains and email_domain not in approved_domains:
             raise HTTPException(
                 status_code=400,
                 detail="Your email domain does not match this organization. Contact the admin for an invite.",
             )
+        if not org.email_domain and len(existing_domains) == 1:
+            org.email_domain = next(iter(existing_domains))
 
     # Check if org already has users to determine role
     existing_user_count = (
@@ -85,9 +92,10 @@ def login(
     db: Session = Depends(database.get_db),
 ) -> dict:
     user = db.query(models.User).filter(models.User.email == user_credentials.username).first()
+    client_identifier = get_real_ip(request)
 
     # Check account lockout before proceeding
-    if lockout_service.check_locked(user_credentials.username):
+    if lockout_service.check_locked(user_credentials.username, client_identifier):
         raise HTTPException(status_code=403, detail="Account temporarily locked. Try again later.")
 
     # LOW-01: constant-time bcrypt check even when user doesn't exist — prevents timing-oracle enumeration
@@ -96,14 +104,17 @@ def login(
             user_credentials.password,
             "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4fSRF6fK.2P8IqGK",
         )
-        lockout_service.record_failure(user_credentials.username)
+        lockout_service.record_failure(user_credentials.username, client_identifier)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Credentials")
 
     if not auth.verify_password(user_credentials.password, user.hashed_password):
-        lockout_service.record_failure(user_credentials.username)
+        lockout_service.record_failure(user_credentials.username, client_identifier)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Credentials")
 
-    lockout_service.reset(user_credentials.username)
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive")
+
+    lockout_service.reset(user_credentials.username, client_identifier)
 
     access_token = auth.create_access_token(data={"sub": user.email})
 
@@ -121,8 +132,24 @@ def login(
 
     return {
         "message": "Authentication successful",
-        "token_type": "bearer",
+        "token_type": "bearer",  # nosec B105 - OAuth token type, not a password
     }  # SECURITY: JWT delivered exclusively via httpOnly cookie
+
+
+@router.post("/change-password")
+def change_password(
+    password_change: schemas.PasswordChange,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(database.get_db),
+) -> dict:
+    user = db.query(models.User).filter(models.User.id == current_user.id).first()
+    if not user or not auth.verify_password(password_change.current_password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Current password is incorrect"
+        )
+    user.hashed_password = auth.get_password_hash(password_change.new_password)
+    db.commit()
+    return {"message": "Password updated successfully"}
 
 
 @router.post("/logout")
