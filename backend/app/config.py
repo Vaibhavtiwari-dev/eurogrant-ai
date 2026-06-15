@@ -11,8 +11,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str
 
     JWT_SECRET: str
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
-    MASTER_INVITE_CODE: str | None = None
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     CELERY_BROKER_URL: str = "redis://redis:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://redis:6379/0"
@@ -37,6 +37,19 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME: str | None = None
 
     APP_BASE_URL: str = "https://eurogrant.ai"
+
+    STRIPE_SECRET_KEY: str | None = None
+    STRIPE_WEBHOOK_SECRET: str | None = None
+    STRIPE_GROWTH_PRICE_ID: str | None = None
+    STRIPE_SCALE_PRICE_ID: str | None = None
+    STRIPE_AGENCY_PRICE_ID: str | None = None
+
+    POSTGRES_USER: str | None = None
+    POSTGRES_PASSWORD: str | None = None
+    POSTGRES_DB: str | None = None
+
+    # Test DB
+    TEST_DATABASE_URL: str = "sqlite:///./test.db"
 
     PINECONE_API_KEY: str | None = None
     PINECONE_INDEX_NAME: str = "eurogrant"

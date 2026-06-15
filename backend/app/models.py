@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from typing import Optional
 
@@ -6,6 +6,7 @@ from sqlalchemy import (
     JSON,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     Enum,
     Float,
@@ -27,12 +28,33 @@ class RoleEnum(StrEnum):
     VIEWER = "viewer"
 
 
+class SubscriptionStatus(StrEnum):
+    INACTIVE = "inactive"
+    TRIALING = "trialing"
+    ACTIVE = "active"
+    PAST_DUE = "past_due"
+    CANCELED = "canceled"
+    UNPAID = "unpaid"
+
+
 class Organization(Base):
     __tablename__ = "organizations"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     subscription_tier: Mapped[str] = mapped_column(String(50), default="growth")
+    subscription_status: Mapped[SubscriptionStatus] = mapped_column(
+        Enum(SubscriptionStatus), default=SubscriptionStatus.INACTIVE
+    )
+    stripe_customer_id: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, unique=True, index=True
+    )
+    stripe_subscription_id: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, unique=True, index=True
+    )
+    subscription_current_period_end: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     email_domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sector: Mapped[str | None] = mapped_column(String(255), nullable=True)
     headcount_range: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -70,6 +92,19 @@ class User(Base):
     organization: Mapped[Optional["Organization"]] = relationship(back_populates="users")
 
 
+class UserInvitation(Base):
+    __tablename__ = "user_invitations"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), nullable=False)
+    invited_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    invite_code: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    is_used: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class Grant(Base):
     __tablename__ = "grants"
 
@@ -92,6 +127,14 @@ class ProposalStatus(StrEnum):
     COMPLETED = "completed"
     COMPLETED_WITH_ERRORS = "completed_with_errors"
     FAILED = "failed"
+
+
+class ApplicationStatus(StrEnum):
+    DRAFT = "draft"
+    SUBMITTED = "submitted"
+    WON = "won"
+    LOST = "lost"
+    WITHDRAWN = "withdrawn"
 
 
 class SectionStatus(StrEnum):
@@ -134,6 +177,10 @@ class Proposal(Base):
     )
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     compatibility_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    application_status: Mapped[ApplicationStatus] = mapped_column(
+        Enum(ApplicationStatus), default=ApplicationStatus.DRAFT
+    )
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     generation_job_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(
@@ -145,6 +192,11 @@ class Proposal(Base):
     sections: Mapped[list["ProposalSection"]] = relationship(
         back_populates="proposal",
         order_by="ProposalSection.order",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    feedback_entries: Mapped[list["ProposalFeedback"]] = relationship(
+        back_populates="proposal",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
@@ -190,6 +242,45 @@ class ProposalSection(Base):
     )
 
     proposal: Mapped["Proposal"] = relationship(back_populates="sections")
+
+
+class ProposalFeedback(Base):
+    __tablename__ = "proposal_feedback"
+    __table_args__ = (
+        UniqueConstraint(
+            "proposal_id",
+            "user_id",
+            "week_start",
+            name="uq_proposal_feedback_user_week",
+        ),
+        CheckConstraint("rating >= 1 AND rating <= 5", name="ck_proposal_feedback_rating"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    proposal_id: Mapped[int] = mapped_column(
+        ForeignKey("proposals.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    week_start: Mapped[date] = mapped_column(Date, nullable=False)
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    comments: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    proposal: Mapped["Proposal"] = relationship(back_populates="feedback_entries")
+    user: Mapped["User"] = relationship()
+
+
+class BillingWebhookEvent(Base):
+    __tablename__ = "billing_webhook_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    stripe_event_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(String(255), nullable=False)
+    processed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class GrantMatch(Base):

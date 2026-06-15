@@ -23,6 +23,7 @@ SECRET_KEY: str = _SECRET_KEY
 
 ALGORITHM = "HS256"  # Hardcoded — do not allow env override to prevent algorithm confusion attacks
 ACCESS_TOKEN_EXPIRE_MINUTES = int(settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+REFRESH_TOKEN_EXPIRE_DAYS = int(settings.REFRESH_TOKEN_EXPIRE_DAYS)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 
@@ -48,7 +49,8 @@ async def get_current_user(
             jwt_token, SECRET_KEY, algorithms=[ALGORITHM], options={"verify_exp": True}
         )
         email: Any = payload.get("sub")
-        if email is None:
+        token_type = payload.get("type", "access")
+        if email is None or token_type != "access":
             raise credentials_exception
         token_data = schemas.TokenData(email=email)
     except JWTError as exc:
@@ -95,6 +97,14 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
         expire = datetime.now(UTC) + expires_delta
     else:
         expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "type": "access"})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+def create_refresh_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.now(UTC) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire, "type": "refresh"})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt

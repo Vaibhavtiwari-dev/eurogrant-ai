@@ -15,6 +15,7 @@ from .auth import get_current_user
 from .config import settings
 from .limiter import limiter
 from .routers import auth as auth_router
+from .routers import billing as billing_router
 from .routers import grants as grants_router
 from .routers import organizations as organizations_router
 from .routers import proposals as proposals_router
@@ -22,7 +23,11 @@ from .routers import uploads as uploads_router
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="EuroGrant AI API")
+app = FastAPI(
+    title="EuroGrant AI API",
+    docs_url=None if settings.ENVIRONMENT == "production" else "/docs",
+    redoc_url=None if settings.ENVIRONMENT == "production" else "/redoc",
+)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceededExc, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
@@ -80,7 +85,8 @@ async def csrf_token_middleware(request: Request, call_next):
 # CSRF Protection Middleware — validates Origin on state-changing requests
 @app.middleware("http")
 async def csrf_protection_middleware(request: Request, call_next):
-    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+    stripe_webhook_path = "/api/v1/billing/webhook"
+    if request.method in ("POST", "PUT", "PATCH", "DELETE") and request.url.path != stripe_webhook_path:
         origin = request.headers.get("origin")
         referer = request.headers.get("referer")
         allowed_origins = {"http://localhost:3000", "http://127.0.0.1:3000", "https://eurogrant.ai"}
@@ -146,6 +152,7 @@ api_v1_router.include_router(uploads_router.router)
 api_v1_router.include_router(organizations_router.router)
 api_v1_router.include_router(grants_router.router)
 api_v1_router.include_router(proposals_router.router)
+api_v1_router.include_router(billing_router.router)
 
 # Include versioned router in app
 app.include_router(api_v1_router)
