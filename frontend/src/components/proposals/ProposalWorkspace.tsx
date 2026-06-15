@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, ArrowLeft, Loader2, RefreshCw, RotateCcw } from "lucide-react";
+import { AlertCircle, ArrowLeft, Loader2, RefreshCw, RotateCcw, FileText, Download } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ import Header from "@/components/dashboard/Header";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { useAuth } from "@/context/AuthContext";
 import { Link } from "@/i18n/routing";
+import { apiFetch } from "@/lib/api";
 import {
   ProposalApiError,
   fetchProposal,
@@ -42,6 +43,7 @@ export default function ProposalWorkspace({ proposalId }: ProposalWorkspaceProps
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isExporting, setIsExporting] = useState<"pdf" | "docx" | null>(null);
   const savingRef = useRef(false);
   const draftRef = useRef<TipTapDocument | null>(null);
 
@@ -197,6 +199,31 @@ export default function ProposalWorkspace({ proposalId }: ProposalWorkspaceProps
     }
   };
 
+  const exportDocument = async (format: "pdf" | "docx") => {
+    setIsExporting(format);
+    try {
+      const res = await apiFetch(`/proposals/${proposalId}/export/${format}`);
+      if (!res.ok) {
+        throw new Error(t("exportFailed", { defaultValue: "Export failed. Please try again." }));
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `EuroGrant_Proposal_${proposalId}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success(t("exportSuccess", { defaultValue: `Exported as ${format.toUpperCase()}` }));
+    } catch (err) {
+      logger.error(`Failed to export ${format}:`, err);
+      toast.error(err instanceof Error ? err.message : "Export failed");
+    } finally {
+      setIsExporting(null);
+    }
+  };
+
   if (loading || !user || isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -236,6 +263,26 @@ export default function ProposalWorkspace({ proposalId }: ProposalWorkspaceProps
               </p>
             </div>
             <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 mr-4 border-r border-white/10 pr-4">
+                <button
+                  type="button"
+                  onClick={() => void exportDocument("pdf")}
+                  disabled={isExporting !== null}
+                  className="rounded-lg border border-white/10 px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-300 hover:bg-white/5 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isExporting === "pdf" ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+                  PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void exportDocument("docx")}
+                  disabled={isExporting !== null}
+                  className="rounded-lg border border-white/10 px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-300 hover:bg-white/5 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isExporting === "docx" ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                  DOCX
+                </button>
+              </div>
               <span
                 aria-live="polite"
                 className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-300"

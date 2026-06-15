@@ -125,7 +125,7 @@ def generate_pdf(
 
     story: list[Any] = [
         Paragraph("Grant Proposal", title_style),
-        Paragraph(f"Target grant: {grant_title}", styles["Heading2"]),
+        Paragraph(f"Target grant: {_escape_xml(grant_title)}", styles["Heading2"]),
         Paragraph(f"Proposal reference: {proposal_id}", body_style),
         Spacer(1, 12),
     ]

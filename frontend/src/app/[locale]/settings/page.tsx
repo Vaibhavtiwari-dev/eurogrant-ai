@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Settings, User, Shield, AlertTriangle, Loader2, Save, CheckCircle2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
+import BillingSettings from "@/components/dashboard/BillingSettings";
 
 export default function SettingsPage() {
   const { user, loading, logout } = useAuth();
@@ -243,6 +244,11 @@ export default function SettingsPage() {
                 </button>
               </div>
             </form>
+          </motion.div>
+
+          {/* Billing / Subscription Section */}
+          <motion.div variants={itemVariants}>
+            <BillingSettings />
           </motion.div>
 
           {/* Danger Zone */}
