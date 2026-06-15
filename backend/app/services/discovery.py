@@ -134,7 +134,10 @@ class EstoniaGrantScraper(GrantScraper):
 
         except Exception as e:
             # Network, SSRF Blocks, or parsing failures are logged and handled gracefully via simulated fallback data
-            logger.warning("Estonia grant portal scraping offline/throttled or blocked: %s. Activating high-fidelity fallback database.", e)
+            logger.warning(
+                "Estonia grant portal scraping offline/throttled or blocked: %s. Activating high-fidelity fallback database.",
+                e,
+            )
             return self._get_fallback_data()
 
     def _parse_html(self, soup: BeautifulSoup) -> list[dict[str, Any]]:

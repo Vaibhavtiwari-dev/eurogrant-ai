@@ -41,8 +41,9 @@ def test_auth_login_invalid():
 
 
 def test_auth_register_success(db_session):
+    from datetime import UTC, datetime, timedelta
+
     from app import models
-    from datetime import datetime, UTC, timedelta
 
     unique_id = str(uuid.uuid4())[:8]
     email = f"new_{unique_id}@example.com"
@@ -51,17 +52,15 @@ def test_auth_register_success(db_session):
     db_session.add(org)
     db_session.commit()
     sys_user = models.User(
-        email=f"sys_{unique_id}_{uuid.uuid4().hex[:4]}@sys.com", 
-        hashed_password="sys", 
-        full_name="sys", 
-        organization_id=org.id, 
-        role="admin", 
-        is_active=True
+        email=f"sys_{unique_id}_{uuid.uuid4().hex[:4]}@sys.com",
+        hashed_password="sys",
+        full_name="sys",
+        organization_id=org.id,
+        role="admin",
+        is_active=True,
     )
     db_session.add(sys_user)
     db_session.commit()
-    
-    
 
     invitation = models.UserInvitation(
         invited_by_id=sys_user.id,
@@ -88,10 +87,10 @@ def test_auth_register_success(db_session):
     assert data["role"] == "viewer"
 
 
-
 def test_auth_register_duplicate_email(db_session):
+    from datetime import UTC, datetime, timedelta
+
     from app import models
-    from datetime import datetime, UTC, timedelta
 
     unique_id = str(uuid.uuid4())[:8]
     email = f"dup_{unique_id}@example.com"
@@ -105,7 +104,7 @@ def test_auth_register_duplicate_email(db_session):
         full_name="sys",
         organization_id=org.id,
         role="admin",
-        is_active=True
+        is_active=True,
     )
     db_session.add(sys_user)
     db_session.commit()
@@ -132,11 +131,10 @@ def test_auth_register_duplicate_email(db_session):
     assert "Email already registered" in response.json()["detail"]
 
 
-
-
 def test_auth_login_success(db_session):
+    from datetime import UTC, datetime, timedelta
+
     from app import models
-    from datetime import datetime, UTC, timedelta
 
     unique_id = str(uuid.uuid4())[:8]
     email = f"user_{unique_id}@example.com"
@@ -146,17 +144,15 @@ def test_auth_login_success(db_session):
     db_session.add(org)
     db_session.commit()
     sys_user = models.User(
-        email=f"sys_{unique_id}_{uuid.uuid4().hex[:4]}@sys.com", 
-        hashed_password="sys", 
-        full_name="sys", 
-        organization_id=org.id, 
-        role="admin", 
-        is_active=True
+        email=f"sys_{unique_id}_{uuid.uuid4().hex[:4]}@sys.com",
+        hashed_password="sys",
+        full_name="sys",
+        organization_id=org.id,
+        role="admin",
+        is_active=True,
     )
     db_session.add(sys_user)
     db_session.commit()
-    
-    
 
     invitation = models.UserInvitation(
         invited_by_id=sys_user.id,
@@ -186,7 +182,6 @@ def test_auth_login_success(db_session):
     data = response.json()
     assert "access_token" not in data, "JWT must not appear in response body"
     assert data.get("message") == "Authentication successful"
-
 
 
 def test_inactive_user_cannot_login(db_session):

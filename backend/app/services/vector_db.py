@@ -49,7 +49,9 @@ class VectorService:
                     metric="cosine",
                     spec=ServerlessSpec(cloud="aws", region=settings.PINECONE_ENVIRONMENT),
                 )
-                logger.info("Created new Pinecone index: %s. Waiting for readiness...", self.index_name)
+                logger.info(
+                    "Created new Pinecone index: %s. Waiting for readiness...", self.index_name
+                )
                 import time
 
                 # Poll for readiness instead of fixed sleep (M11)
@@ -92,7 +94,11 @@ class VectorService:
         # Upsert in namespace
         namespace = f"org_{org_id}"
         if not self.index:
-            logger.warning("Pinecone index not initialized. Bypassed upserting %s chunks to namespace %s (offline mock active)", len(vectors), namespace)
+            logger.warning(
+                "Pinecone index not initialized. Bypassed upserting %s chunks to namespace %s (offline mock active)",
+                len(vectors),
+                namespace,
+            )
             return
 
         try:
@@ -100,9 +106,16 @@ class VectorService:
                 vectors=vectors,  # type: ignore
                 namespace=namespace,
             )
-            logger.info("Upserted %s chunks for document %s to Pinecone namespace %s", len(vectors), doc_id, namespace)
+            logger.info(
+                "Upserted %s chunks for document %s to Pinecone namespace %s",
+                len(vectors),
+                doc_id,
+                namespace,
+            )
         except Exception as e:
-            logger.error("Pinecone upsert failed for document %s: %s. Bypassed gracefully.", doc_id, e)
+            logger.error(
+                "Pinecone upsert failed for document %s: %s. Bypassed gracefully.", doc_id, e
+            )
 
     def upsert_grant(self, grant_id: int, text: str, metadata: dict):
         chunks = self.text_splitter.split_text(text)
@@ -118,7 +131,10 @@ class VectorService:
             )
 
         if not self.index:
-            logger.warning("Pinecone index not initialized. Bypassed indexing %s chunks to grants namespace (offline mock active)", len(vectors))
+            logger.warning(
+                "Pinecone index not initialized. Bypassed indexing %s chunks to grants namespace (offline mock active)",
+                len(vectors),
+            )
             return
 
         try:
@@ -126,9 +142,15 @@ class VectorService:
                 vectors=vectors,  # type: ignore
                 namespace="grants",
             )
-            logger.info("Upserted %s chunks for grant %s to Pinecone namespace grants", len(vectors), grant_id)
+            logger.info(
+                "Upserted %s chunks for grant %s to Pinecone namespace grants",
+                len(vectors),
+                grant_id,
+            )
         except Exception as e:
-            logger.error("Pinecone upsert failed for grant %s: %s. Bypassed gracefully.", grant_id, e)
+            logger.error(
+                "Pinecone upsert failed for grant %s: %s. Bypassed gracefully.", grant_id, e
+            )
 
     def query_grants(self, query_text: str, limit: int = 10) -> list[int]:
         # 1. Generate embedding for query

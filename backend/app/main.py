@@ -86,7 +86,10 @@ async def csrf_token_middleware(request: Request, call_next):
 @app.middleware("http")
 async def csrf_protection_middleware(request: Request, call_next):
     stripe_webhook_path = "/api/v1/billing/webhook"
-    if request.method in ("POST", "PUT", "PATCH", "DELETE") and request.url.path != stripe_webhook_path:
+    if (
+        request.method in ("POST", "PUT", "PATCH", "DELETE")
+        and request.url.path != stripe_webhook_path
+    ):
         origin = request.headers.get("origin")
         referer = request.headers.get("referer")
         allowed_origins = {"http://localhost:3000", "http://127.0.0.1:3000", "https://eurogrant.ai"}

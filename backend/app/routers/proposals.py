@@ -324,8 +324,7 @@ def export_proposal(
         .all()
     )
     export_sections = [
-        ExportSection(name=section.name, content_json=section.content_json)
-        for section in sections
+        ExportSection(name=section.name, content_json=section.content_json) for section in sections
     ]
     if not export_sections and proposal.content:
         export_sections = [

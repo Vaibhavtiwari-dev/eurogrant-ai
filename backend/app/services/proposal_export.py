@@ -34,9 +34,7 @@ def _text_content(node: dict[str, Any]) -> str:
     if node.get("type") == "text":
         return str(node.get("text", ""))
     return "".join(
-        _text_content(child)
-        for child in node.get("content", [])
-        if isinstance(child, dict)
+        _text_content(child) for child in node.get("content", []) if isinstance(child, dict)
     )
 
 
@@ -203,8 +201,5 @@ def generate_docx(
 
 def _escape_xml(value: str) -> str:
     return (
-        value.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
+        value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
     )

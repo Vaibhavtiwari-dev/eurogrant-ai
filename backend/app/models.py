@@ -276,7 +276,9 @@ class BillingWebhookEvent(Base):
     __tablename__ = "billing_webhook_events"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    stripe_event_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    stripe_event_id: Mapped[str] = mapped_column(
+        String(255), unique=True, nullable=False, index=True
+    )
     event_type: Mapped[str] = mapped_column(String(255), nullable=False)
     processed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

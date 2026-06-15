@@ -143,9 +143,7 @@ def apply_subscription_event(organization: Organization, subscription: Any) -> N
 
     period_end = _object_value(subscription, "current_period_end")
     if isinstance(period_end, (int, float)):
-        organization.subscription_current_period_end = datetime.fromtimestamp(
-            period_end, tz=UTC
-        )
+        organization.subscription_current_period_end = datetime.fromtimestamp(period_end, tz=UTC)
     if organization.subscription_status == SubscriptionStatus.CANCELED:
         organization.stripe_subscription_id = None
 

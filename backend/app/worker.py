@@ -177,7 +177,7 @@ def scrape_grants():
                         existing_grant.source_url = data["source_url"]
                         existing_grant.sector_tags = tags_json
                         db.commit()
-                        logger.info("Updated existing grant %s", data['external_id'])
+                        logger.info("Updated existing grant %s", data["external_id"])
                         grant_obj = existing_grant
                     else:
                         new_grant = Grant(
@@ -194,7 +194,9 @@ def scrape_grants():
                         db.add(new_grant)
                         db.commit()
                         db.refresh(new_grant)
-                        logger.info("Created new grant %s with ID %s", data['external_id'], new_grant.id)
+                        logger.info(
+                            "Created new grant %s with ID %s", data["external_id"], new_grant.id
+                        )
                         grant_obj = new_grant
 
                     updated_or_created_count += 1
@@ -212,11 +214,18 @@ def scrape_grants():
                     )
 
                 except Exception as item_err:
-                    logger.error("Failed to process individual grant %s: %s", data.get('external_id'), item_err)
+                    logger.error(
+                        "Failed to process individual grant %s: %s",
+                        data.get("external_id"),
+                        item_err,
+                    )
                     db.rollback()
                     continue
 
-            logger.info("Completed periodic grant scraping sweep. Processed/Indexed %s grants.", updated_or_created_count)
+            logger.info(
+                "Completed periodic grant scraping sweep. Processed/Indexed %s grants.",
+                updated_or_created_count,
+            )
 
         except Exception as e:
             logger.error("Critical failure in scrape_grants task execution: %s", e)
@@ -255,7 +264,11 @@ def scan_for_new_matches():
 
                     matches_data = get_vector_service().search_grants(query_str, top_k=10)
                 except Exception as e:
-                    logger.warning("Vector search failed for org %s in scanning: %s. Falling back to default DB search.", org.id, e)
+                    logger.warning(
+                        "Vector search failed for org %s in scanning: %s. Falling back to default DB search.",
+                        org.id,
+                        e,
+                    )
 
                 if not matches_data:
                     grants = db.query(Grant).limit(5).all()
@@ -293,7 +306,11 @@ def scan_for_new_matches():
                                     org_profile_text, grant.description
                                 )
                             except Exception as ex_err:
-                                logger.error("Failed to generate explanation for grant %s: %s", grant.id, ex_err)
+                                logger.error(
+                                    "Failed to generate explanation for grant %s: %s",
+                                    grant.id,
+                                    ex_err,
+                                )
                                 explanation = "This grant is highly compatible with your organization's core profile."
 
                             new_match = GrantMatch(
@@ -329,7 +346,11 @@ def scan_for_new_matches():
                                         explanation=explanation,
                                     )
                                 except Exception as email_err:
-                                    logger.error("Failed to send email alert to User ID %s: %s", user.id, email_err)
+                                    logger.error(
+                                        "Failed to send email alert to User ID %s: %s",
+                                        user.id,
+                                        email_err,
+                                    )
 
             logger.info("Completed periodic match scan and notifications sweep.")
         except Exception as e:

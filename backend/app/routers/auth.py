@@ -10,7 +10,9 @@ from ..services.lockout import lockout_service
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post("/invitations", response_model=schemas.UserInvitationOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/invitations", response_model=schemas.UserInvitationOut, status_code=status.HTTP_201_CREATED
+)
 def create_invitation(
     invite_in: schemas.UserInvitationCreate,
     current_user: models.User = Depends(auth.require_role([models.RoleEnum.ADMIN])),
@@ -47,10 +49,14 @@ def register(
 ) -> models.User:
     from datetime import UTC, datetime
 
-    invitation = db.query(models.UserInvitation).filter(
-        models.UserInvitation.invite_code == user_in.invite_code,
-        models.UserInvitation.is_used.is_(False),
-    ).first()
+    invitation = (
+        db.query(models.UserInvitation)
+        .filter(
+            models.UserInvitation.invite_code == user_in.invite_code,
+            models.UserInvitation.is_used.is_(False),
+        )
+        .first()
+    )
 
     if not invitation:
         raise HTTPException(status_code=403, detail="Invalid or used invite code")
@@ -61,7 +67,11 @@ def register(
     if invitation.email.lower() != user_in.email.lower():
         raise HTTPException(status_code=400, detail="Email does not match invitation")
 
-    org = db.query(models.Organization).filter(models.Organization.id == invitation.organization_id).first()
+    org = (
+        db.query(models.Organization)
+        .filter(models.Organization.id == invitation.organization_id)
+        .first()
+    )
     if not org:
         raise HTTPException(status_code=400, detail="Invalid organization")
 
@@ -181,7 +191,11 @@ def logout(response: Response) -> dict:
         key="access_token", httponly=True, samesite="strict", path="/", secure=not is_localhost
     )
     response.delete_cookie(
-        key="refresh_token", httponly=True, samesite="strict", path="/api/v1/auth/refresh", secure=not is_localhost
+        key="refresh_token",
+        httponly=True,
+        samesite="strict",
+        path="/api/v1/auth/refresh",
+        secure=not is_localhost,
     )
     return {"message": "Successfully logged out"}
 
@@ -202,7 +216,12 @@ def refresh_token(
         raise HTTPException(status_code=401, detail="Refresh token missing")
 
     try:
-        payload = jwt.decode(refresh_token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM], options={"verify_exp": True})
+        payload = jwt.decode(
+            refresh_token,
+            auth.SECRET_KEY,
+            algorithms=[auth.ALGORITHM],
+            options={"verify_exp": True},
+        )
         email: Any = payload.get("sub")
         token_type = payload.get("type")
         if email is None or token_type != "refresh":

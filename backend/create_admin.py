@@ -45,6 +45,7 @@ def create_admin(email: str, password: str, full_name: str, org_name: str):
     finally:
         db.close()
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create an initial admin user.")
     parser.add_argument("--email", required=True, help="Admin email address")
@@ -53,5 +54,9 @@ if __name__ == "__main__":
     parser.add_argument("--org", required=True, help="Organization name")
 
     args = parser.parse_args()
-    password = args.password or os.environ.get("ADMIN_PASSWORD") or getpass.getpass("Enter admin password: ")
+    password = (
+        args.password
+        or os.environ.get("ADMIN_PASSWORD")
+        or getpass.getpass("Enter admin password: ")
+    )
     create_admin(args.email, password, args.name, args.org)

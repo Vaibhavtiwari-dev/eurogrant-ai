@@ -64,9 +64,7 @@ def create_checkout(
 ) -> schemas.BillingSessionOut:
     organization = _organization_for_user(db, current_user)
     try:
-        url = StripeBillingService().create_checkout_session(
-            organization, payload.tier.value
-        )
+        url = StripeBillingService().create_checkout_session(organization, payload.tier.value)
         db.commit()
     except (BillingConfigurationError, BillingProviderError) as exc:
         db.rollback()
