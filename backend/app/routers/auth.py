@@ -10,6 +10,34 @@ from ..services.lockout import lockout_service
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
+@router.post("/invitations", response_model=schemas.UserInvitationOut, status_code=status.HTTP_201_CREATED)
+def create_invitation(
+    invite_in: schemas.UserInvitationCreate,
+    current_user: models.User = Depends(auth.require_role([models.RoleEnum.ADMIN])),
+    db: Session = Depends(database.get_db),
+):
+    import secrets
+    from datetime import UTC, datetime, timedelta
+    
+    if invite_in.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=403, detail="Cannot invite to other organizations")
+        
+    invite_code = secrets.token_urlsafe(32)
+    expires_at = datetime.now(UTC) + timedelta(days=7)
+    
+    invitation = models.UserInvitation(
+        email=invite_in.email,
+        organization_id=invite_in.organization_id,
+        invited_by_id=current_user.id,
+        invite_code=invite_code,
+        expires_at=expires_at,
+    )
+    db.add(invitation)
+    db.commit()
+    db.refresh(invitation)
+    return invitation
+
+
 @router.post("/register", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
 def register(
@@ -17,52 +45,32 @@ def register(
     user_in: schemas.UserCreate,
     db: Session = Depends(database.get_db),
 ) -> models.User:
-    # Validate invite code - Mandatory environment variable check
-    master_invite_code = settings.MASTER_INVITE_CODE
-    if not master_invite_code:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Registration system is misconfigured. MASTER_INVITE_CODE environment variable is missing.",
-        )
+    from datetime import UTC, datetime
+    
+    invitation = db.query(models.UserInvitation).filter(
+        models.UserInvitation.invite_code == user_in.invite_code,
+        models.UserInvitation.is_used == False,
+    ).first()
+    
+    if not invitation:
+        raise HTTPException(status_code=403, detail="Invalid or used invite code")
+        
+    if invitation.expires_at.replace(tzinfo=UTC) < datetime.now(UTC):
+        raise HTTPException(status_code=403, detail="Invite code expired")
+        
+    if invitation.email.lower() != user_in.email.lower():
+        raise HTTPException(status_code=400, detail="Email does not match invitation")
 
-    if user_in.invite_code != master_invite_code:
-        raise HTTPException(status_code=403, detail="Invalid invite code")
+    org = db.query(models.Organization).filter(models.Organization.id == invitation.organization_id).first()
+    if not org:
+        raise HTTPException(status_code=400, detail="Invalid organization")
 
     # Check if user already exists
     user = db.query(models.User).filter(models.User.email == user_in.email).first()
     if user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # Check if organization exists or create new
-    org = (
-        db.query(models.Organization)
-        .filter(models.Organization.name == user_in.organization_name)
-        .first()
-    )
-    if not org:
-        email_domain = user_in.email.rsplit("@", 1)[-1].lower()
-        org = models.Organization(name=user_in.organization_name, email_domain=email_domain)
-        db.add(org)
-        db.commit()
-        db.refresh(org)
-    else:
-        email_domain = user_in.email.rsplit("@", 1)[-1].lower()
-        existing_domains = {
-            existing_user.email.rsplit("@", 1)[-1].lower()
-            for existing_user in db.query(models.User)
-            .filter(models.User.organization_id == org.id)
-            .all()
-        }
-        approved_domains = existing_domains | ({org.email_domain} if org.email_domain else set())
-        if approved_domains and email_domain not in approved_domains:
-            raise HTTPException(
-                status_code=400,
-                detail="Your email domain does not match this organization. Contact the admin for an invite.",
-            )
-        if not org.email_domain and len(existing_domains) == 1:
-            org.email_domain = next(iter(existing_domains))
-
-    # Check if org already has users to determine role
+    # Determine role based on existing users
     existing_user_count = (
         db.query(models.User).filter(models.User.organization_id == org.id).count()
     )
@@ -78,6 +86,10 @@ def register(
         role=user_role,
     )
     db.add(new_user)
+    
+    # Mark invitation as used
+    invitation.is_used = True
+    
     db.commit()
     db.refresh(new_user)
     return new_user
@@ -117,6 +129,7 @@ def login(
     lockout_service.reset(user_credentials.username, client_identifier)
 
     access_token = auth.create_access_token(data={"sub": user.email})
+    refresh_token = auth.create_refresh_token(data={"sub": user.email})
 
     # Set httpOnly cookie with strict SameSite + Secure flags for CSRF protection
     is_localhost = settings.ENVIRONMENT == "development"
@@ -128,6 +141,15 @@ def login(
         samesite="strict",  # Strict CSRF protection
         max_age=auth.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=not is_localhost,
+        samesite="strict",
+        max_age=auth.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/api/v1/auth/refresh",
     )
 
     return {
@@ -158,4 +180,51 @@ def logout(response: Response) -> dict:
     response.delete_cookie(
         key="access_token", httponly=True, samesite="strict", path="/", secure=not is_localhost
     )
+    response.delete_cookie(
+        key="refresh_token", httponly=True, samesite="strict", path="/api/v1/auth/refresh", secure=not is_localhost
+    )
     return {"message": "Successfully logged out"}
+
+
+@router.post("/refresh", response_model=schemas.Token, response_model_exclude_none=True)
+def refresh_token(
+    request: Request,
+    response: Response,
+    db: Session = Depends(database.get_db),
+) -> dict:
+    import jwt
+    from jwt.exceptions import PyJWTError as JWTError
+    from typing import Any
+    
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Refresh token missing")
+    
+    try:
+        payload = jwt.decode(refresh_token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM], options={"verify_exp": True})
+        email: Any = payload.get("sub")
+        token_type = payload.get("type")
+        if email is None or token_type != "refresh":
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+    except JWTError as exc:
+        raise HTTPException(status_code=401, detail="Invalid refresh token") from exc
+    
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User inactive or deleted")
+        
+    access_token = auth.create_access_token(data={"sub": user.email})
+    is_localhost = settings.ENVIRONMENT == "development"
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=not is_localhost,
+        samesite="strict",
+        max_age=auth.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+    return {
+        "message": "Token refreshed",
+        "token_type": "bearer",
+    }
