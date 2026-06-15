@@ -50,11 +50,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     formData.append("username", email);
     formData.append("password", password);
 
+    const getCookie = (name: string) => {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop()?.split(";").shift();
+      return "";
+    };
+    const csrfToken = getCookie("csrf_token") || "";
+
     try {
       const res = await fetch(apiUrl("/auth/login"), {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
+          "X-CSRF-Token": csrfToken,
         },
         body: formData.toString(),
         credentials: "include",
