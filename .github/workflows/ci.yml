@@ -17,12 +17,12 @@ jobs:
         working-directory: backend
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.11"
           cache: "pip"
@@ -42,9 +42,7 @@ jobs:
 
       - name: Mypy (type check)
         run: mypy app/
-        continue-on-error: true
-        # Advisory: surfaces type errors but does not block. Promote to blocking
-        # once the remaining public-function return-type hints (audit M12) are added.
+        # Security: Blocking on type errors prevents missing logic flaws from merging.
 
       - name: Bandit (security scan)
         run: bandit -r app/ -ll
@@ -64,13 +62,12 @@ jobs:
           CELERY_BROKER_URL: redis://localhost:6379/0
           CELERY_RESULT_BACKEND: redis://localhost:6379/0
           JWT_SECRET: test_secret_key_for_ci
-          MASTER_INVITE_CODE: ci_test_invite_code
           STORAGE_BACKEND: local
           CELERY_ALWAYS_EAGER: "true"
 
       - name: Upload backend coverage to Codecov
         if: always()
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4
         with:
           files: backend/coverage.xml
           flags: backend
@@ -82,12 +79,12 @@ jobs:
         working-directory: frontend
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "20"
           cache: "npm"
@@ -101,9 +98,7 @@ jobs:
 
       - name: Type check
         run: npx tsc --noEmit
-        continue-on-error: true
-        # Advisory: surfaces type errors but does not block. Promote to blocking
-        # once the strict-TS baseline is clean.
+        # Security: Blocking on type errors prevents missing logic flaws from merging.
 
       - name: Unit tests with coverage
         run: npm run test:unit -- --coverage
@@ -113,7 +108,7 @@ jobs:
 
       - name: Upload frontend coverage to Codecov
         if: always()
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4
         with:
           directory: frontend/coverage
           flags: frontend
@@ -121,15 +116,16 @@ jobs:
   docker-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Build backend image
         id: build-backend
+        # Intentional retry pattern: continue on error here, retry in the next step to mitigate transient Docker/network failures.
         continue-on-error: true
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: ./backend
           push: false
@@ -139,7 +135,7 @@ jobs:
 
       - name: Retry backend image build
         if: steps.build-backend.outcome == 'failure'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: ./backend
           push: false
@@ -149,8 +145,9 @@ jobs:
 
       - name: Build frontend image
         id: build-frontend
+        # Intentional retry pattern: continue on error here, retry in the next step to mitigate transient Docker/network failures.
         continue-on-error: true
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: ./frontend
           push: false
@@ -160,7 +157,7 @@ jobs:
 
       - name: Retry frontend image build
         if: steps.build-frontend.outcome == 'failure'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: ./frontend
           push: false
