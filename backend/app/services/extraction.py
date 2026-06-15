@@ -37,7 +37,7 @@ class ExtractionService:
         elif "wordprocessingml" in content_type or "docx" in content_type:
             return self._extract_from_docx(file_content)
         else:
-            logger.warning(f"Unsupported content type for extraction: {content_type}")
+            logger.warning("Unsupported content type for extraction: %s", content_type)
             return ""
 
     def _extract_from_pdf(self, file_content: bytes) -> str:
@@ -53,7 +53,7 @@ class ExtractionService:
                         if len(text) > MAX_EXTRACTED_TEXT_CHARS:
                             raise ValueError("PDF extracted text exceeds the processing limit")
         except Exception as e:
-            logger.error(f"Error extracting from PDF: {e}")
+            logger.error("Error extracting from PDF: %s", e)
             raise
         return text
 
@@ -65,7 +65,7 @@ class ExtractionService:
             for para in doc.paragraphs:
                 text += para.text + "\n"
         except Exception as e:
-            logger.error(f"Error extracting from DOCX: {e}")
+            logger.error("Error extracting from DOCX: %s", e)
             raise
         return text
 
@@ -109,7 +109,7 @@ class ExtractionService:
                 explanation = explanation[:247] + "..."
             return explanation
         except Exception as e:
-            logger.error(f"Error generating AI match explanation: {e}")
+            logger.error("Error generating AI match explanation: %s", e)
             return "This grant matches your organization's core technologies and strategic sector focus."
 
 

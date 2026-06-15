@@ -60,12 +60,12 @@ def process_company_document(document_id: int):
         try:
             doc = db.query(CompanyDocument).filter(CompanyDocument.id == document_id).first()
             if not doc:
-                logger.error(f"Document {document_id} not found")
+                logger.error("Document %s not found", document_id)
                 return
 
             file_content = asyncio.run(s3_service.get_fileobj(doc.s3_key))
             text = extraction_service.extract_text(file_content, doc.content_type)
-            logger.info(f"Extracted {len(text)} characters from document {document_id}")
+            logger.info("Extracted %s characters from document %s", len(text), document_id)
 
             safe_text = redact_pii(text)
             get_vector_service().upsert_text(safe_text, doc_id=doc.id, org_id=doc.organization_id)
@@ -75,7 +75,7 @@ def process_company_document(document_id: int):
             db.commit()
 
         except Exception as e:
-            logger.error(f"Error processing document {document_id}: {e}")
+            logger.error("Error processing document %s: %s", document_id, e)
             db.rollback()
             doc = db.query(CompanyDocument).filter(CompanyDocument.id == document_id).first()
             if doc:
@@ -136,10 +136,10 @@ def extract_company_profile(text: str, org_id: int, db):
             org.countries_of_operation = profile_data.get("countries_of_operation", [])
             org.core_technologies = profile_data.get("core_technologies", [])
             db.commit()
-            logger.info(f"Updated profile for organization {org_id}")
+            logger.info("Updated profile for organization %s", org_id)
 
     except Exception as e:
-        logger.error(f"Failed to extract company profile: {e}")
+        logger.error("Failed to extract company profile: %s", e)
 
 
 @celery_app.task(
@@ -157,7 +157,7 @@ def scrape_grants():
     with session_scope() as db:
         try:
             discovered_grants = discovery_service.run_all_scrapers()
-            logger.info(f"Retrieved {len(discovered_grants)} total raw grant listings")
+            logger.info("Retrieved %s total raw grant listings", len(discovered_grants))
 
             updated_or_created_count = 0
             for data in discovered_grants:
@@ -177,7 +177,7 @@ def scrape_grants():
                         existing_grant.source_url = data["source_url"]
                         existing_grant.sector_tags = tags_json
                         db.commit()
-                        logger.info(f"Updated existing grant {data['external_id']}")
+                        logger.info("Updated existing grant %s", data['external_id'])
                         grant_obj = existing_grant
                     else:
                         new_grant = Grant(
@@ -194,9 +194,7 @@ def scrape_grants():
                         db.add(new_grant)
                         db.commit()
                         db.refresh(new_grant)
-                        logger.info(
-                            f"Created new grant {data['external_id']} with ID {new_grant.id}"
-                        )
+                        logger.info("Created new grant %s with ID %s", data['external_id'], new_grant.id)
                         grant_obj = new_grant
 
                     updated_or_created_count += 1
@@ -214,18 +212,14 @@ def scrape_grants():
                     )
 
                 except Exception as item_err:
-                    logger.error(
-                        f"Failed to process individual grant {data.get('external_id')}: {item_err}"
-                    )
+                    logger.error("Failed to process individual grant %s: %s", data.get('external_id'), item_err)
                     db.rollback()
                     continue
 
-            logger.info(
-                f"Completed periodic grant scraping sweep. Processed/Indexed {updated_or_created_count} grants."
-            )
+            logger.info("Completed periodic grant scraping sweep. Processed/Indexed %s grants.", updated_or_created_count)
 
         except Exception as e:
-            logger.error(f"Critical failure in scrape_grants task execution: {e}")
+            logger.error("Critical failure in scrape_grants task execution: %s", e)
 
 
 @celery_app.task(
@@ -261,9 +255,7 @@ def scan_for_new_matches():
 
                     matches_data = get_vector_service().search_grants(query_str, top_k=10)
                 except Exception as e:
-                    logger.warning(
-                        f"Vector search failed for org {org.id} in scanning: {e}. Falling back to default DB search."
-                    )
+                    logger.warning("Vector search failed for org %s in scanning: %s. Falling back to default DB search.", org.id, e)
 
                 if not matches_data:
                     grants = db.query(Grant).limit(5).all()
@@ -301,9 +293,7 @@ def scan_for_new_matches():
                                     org_profile_text, grant.description
                                 )
                             except Exception as ex_err:
-                                logger.error(
-                                    f"Failed to generate explanation for grant {grant.id}: {ex_err}"
-                                )
+                                logger.error("Failed to generate explanation for grant %s: %s", grant.id, ex_err)
                                 explanation = "This grant is highly compatible with your organization's core profile."
 
                             new_match = GrantMatch(
@@ -339,13 +329,11 @@ def scan_for_new_matches():
                                         explanation=explanation,
                                     )
                                 except Exception as email_err:
-                                    logger.error(
-                                        f"Failed to send email alert to {user.email}: {email_err}"
-                                    )
+                                    logger.error("Failed to send email alert to User ID %s: %s", user.id, email_err)
 
             logger.info("Completed periodic match scan and notifications sweep.")
         except Exception as e:
-            logger.error(f"Critical failure in scan_for_new_matches Celery task: {e}")
+            logger.error("Critical failure in scan_for_new_matches Celery task: %s", e)
             db.rollback()
 
 

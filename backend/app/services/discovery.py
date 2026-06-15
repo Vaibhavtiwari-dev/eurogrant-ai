@@ -103,7 +103,7 @@ class EstoniaGrantScraper(GrantScraper):
         self.timeout = 10.0  # seconds
 
     def scrape(self) -> list[dict[str, Any]]:
-        logger.info(f"Initiating scraping sweep for Enterprise Estonia portal: {self.portal_url}")
+        logger.info("Initiating scraping sweep for Enterprise Estonia portal: %s", self.portal_url)
 
         try:
             if not _is_safe_url(self.portal_url):
@@ -123,7 +123,7 @@ class EstoniaGrantScraper(GrantScraper):
             grants = self._parse_html(soup)
 
             if grants:
-                logger.info(f"Successfully scraped {len(grants)} grants from Enterprise Estonia")
+                logger.info("Successfully scraped %s grants from Enterprise Estonia", len(grants))
                 return grants
 
             # If request succeeded but no items were parsed, trigger simulated fallback
@@ -134,9 +134,7 @@ class EstoniaGrantScraper(GrantScraper):
 
         except Exception as e:
             # Network, SSRF Blocks, or parsing failures are logged and handled gracefully via simulated fallback data
-            logger.warning(
-                f"Estonia grant portal scraping offline/throttled or blocked: {e}. Activating high-fidelity fallback database."
-            )
+            logger.warning("Estonia grant portal scraping offline/throttled or blocked: %s. Activating high-fidelity fallback database.", e)
             return self._get_fallback_data()
 
     def _parse_html(self, soup: BeautifulSoup) -> list[dict[str, Any]]:
@@ -203,7 +201,7 @@ class EstoniaGrantScraper(GrantScraper):
                     }
                 )
             except Exception as pe:
-                logger.error(f"Error parsing specific HTML card node: {pe}")
+                logger.error("Error parsing specific HTML card node: %s", pe)
                 continue
 
         return results
@@ -268,7 +266,7 @@ class DiscoveryService:
                 results = scraper.scrape()
                 all_grants.extend(results)
             except Exception as e:
-                logger.error(f"Failed to execute scraper {scraper.__class__.__name__}: {e}")
+                logger.error("Failed to execute scraper %s: %s", scraper.__class__.__name__, e)
 
         return all_grants
 

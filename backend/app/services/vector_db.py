@@ -49,9 +49,7 @@ class VectorService:
                     metric="cosine",
                     spec=ServerlessSpec(cloud="aws", region=settings.PINECONE_ENVIRONMENT),
                 )
-                logger.info(
-                    f"Created new Pinecone index: {self.index_name}. Waiting for readiness..."
-                )
+                logger.info("Created new Pinecone index: %s. Waiting for readiness...", self.index_name)
                 import time
 
                 # Poll for readiness instead of fixed sleep (M11)
@@ -61,12 +59,12 @@ class VectorService:
                     if stats.get("total_vector_count", 0) > 0:
                         break
         except Exception as e:
-            logger.warning(f"Could not check or create Pinecone index: {e}")
+            logger.warning("Could not check or create Pinecone index: %s", e)
 
         try:
             self.index = self.pc.Index(self.index_name)  # type: ignore
         except Exception as e:
-            logger.error(f"Failed to connect to Pinecone index: {e}")
+            logger.error("Failed to connect to Pinecone index: %s", e)
             self.index = None
 
     def generate_embeddings(self, text: str) -> list[float]:
@@ -74,7 +72,7 @@ class VectorService:
             response = self.openai_client.embeddings.create(input=text, model=self.embedding_model)
             return response.data[0].embedding
         except Exception as e:
-            logger.error(f"Embedding generation failed: {e}")
+            logger.error("Embedding generation failed: %s", e)
             raise
 
     def upsert_text(self, text: str, doc_id: int, org_id: int):
@@ -94,9 +92,7 @@ class VectorService:
         # Upsert in namespace
         namespace = f"org_{org_id}"
         if not self.index:
-            logger.warning(
-                f"Pinecone index not initialized. Bypassed upserting {len(vectors)} chunks to namespace {namespace} (offline mock active)"
-            )
+            logger.warning("Pinecone index not initialized. Bypassed upserting %s chunks to namespace %s (offline mock active)", len(vectors), namespace)
             return
 
         try:
@@ -104,11 +100,9 @@ class VectorService:
                 vectors=vectors,  # type: ignore
                 namespace=namespace,
             )
-            logger.info(
-                f"Upserted {len(vectors)} chunks for document {doc_id} to Pinecone namespace {namespace}"
-            )
+            logger.info("Upserted %s chunks for document %s to Pinecone namespace %s", len(vectors), doc_id, namespace)
         except Exception as e:
-            logger.error(f"Pinecone upsert failed for document {doc_id}: {e}. Bypassed gracefully.")
+            logger.error("Pinecone upsert failed for document %s: %s. Bypassed gracefully.", doc_id, e)
 
     def upsert_grant(self, grant_id: int, text: str, metadata: dict):
         chunks = self.text_splitter.split_text(text)
@@ -124,9 +118,7 @@ class VectorService:
             )
 
         if not self.index:
-            logger.warning(
-                f"Pinecone index not initialized. Bypassed indexing {len(vectors)} chunks to grants namespace (offline mock active)"
-            )
+            logger.warning("Pinecone index not initialized. Bypassed indexing %s chunks to grants namespace (offline mock active)", len(vectors))
             return
 
         try:
@@ -134,18 +126,16 @@ class VectorService:
                 vectors=vectors,  # type: ignore
                 namespace="grants",
             )
-            logger.info(
-                f"Upserted {len(vectors)} chunks for grant {grant_id} to Pinecone namespace grants"
-            )
+            logger.info("Upserted %s chunks for grant %s to Pinecone namespace grants", len(vectors), grant_id)
         except Exception as e:
-            logger.error(f"Pinecone upsert failed for grant {grant_id}: {e}. Bypassed gracefully.")
+            logger.error("Pinecone upsert failed for grant %s: %s. Bypassed gracefully.", grant_id, e)
 
     def query_grants(self, query_text: str, limit: int = 10) -> list[int]:
         # 1. Generate embedding for query
         try:
             embedding = self.generate_embeddings(query_text)
         except Exception as e:
-            logger.error(f"Could not generate query embeddings: {e}")
+            logger.error("Could not generate query embeddings: %s", e)
             return []
 
         if not self.index:
@@ -168,14 +158,14 @@ class VectorService:
                     grant_ids.append(int(grant_id))
             return grant_ids
         except Exception as e:
-            logger.error(f"Pinecone query failed in grants namespace: {e}")
+            logger.error("Pinecone query failed in grants namespace: %s", e)
             return []
 
     def search_grants(self, query_text: str, top_k: int = 10) -> list[dict]:
         try:
             embedding = self.generate_embeddings(query_text)
         except Exception as e:
-            logger.error(f"Could not generate query embeddings for search_grants: {e}")
+            logger.error("Could not generate query embeddings for search_grants: %s", e)
             return []
 
         if not self.index:
@@ -201,7 +191,7 @@ class VectorService:
                     )
             return matches
         except Exception as e:
-            logger.error(f"Pinecone query failed in search_grants grants namespace: {e}")
+            logger.error("Pinecone query failed in search_grants grants namespace: %s", e)
             return []
 
     def query_namespace(self, query_text: str, namespace: str, top_k: int = 5) -> list[str]:
@@ -219,7 +209,7 @@ class VectorService:
         try:
             embedding = self.generate_embeddings(query_text)
         except Exception as e:
-            logger.error(f"Could not generate query embeddings for namespace {namespace}: {e}")
+            logger.error("Could not generate query embeddings for namespace %s: %s", namespace, e)
             return []
 
         if not self.index:
@@ -243,7 +233,7 @@ class VectorService:
                     texts.append(text)
             return texts
         except Exception as e:
-            logger.error(f"Pinecone query failed in namespace {namespace}: {e}")
+            logger.error("Pinecone query failed in namespace %s: %s", namespace, e)
             return []
 
 

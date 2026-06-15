@@ -28,7 +28,7 @@ class S3Service:
             # Use backend root for local storage
             self.local_path = Path("tmp/uploads")
             self.local_path.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Using local storage at {self.local_path.absolute()}")
+            logger.info("Using local storage at %s", self.local_path.absolute())
 
     def _get_s3_client(self) -> "Any":
         """Return the boto3 S3 client, or None for local-storage backends.
@@ -63,7 +63,7 @@ class S3Service:
             except HTTPException:
                 raise
             except Exception as exc:
-                logger.error(f"Failed to save locally: {exc}")
+                logger.error("Failed to save locally: %s", exc)
                 raise HTTPException(
                     status_code=500, detail="Failed to save file to local storage"
                 ) from exc
@@ -84,7 +84,7 @@ class S3Service:
             await asyncio.to_thread(_upload)
             return s3_key
         except (ClientError, BotoCoreError) as exc:
-            logger.error(f"Failed to upload to S3: {exc}")
+            logger.error("Failed to upload to S3: %s", exc)
             raise HTTPException(status_code=500, detail="Failed to upload file to storage") from exc
 
     async def get_fileobj(self, s3_key: str) -> bytes:
@@ -96,7 +96,7 @@ class S3Service:
             except HTTPException:
                 raise
             except Exception as exc:
-                logger.error(f"Failed to read locally: {exc}")
+                logger.error("Failed to read locally: %s", exc)
                 raise HTTPException(
                     status_code=500, detail="Failed to read file from local storage"
                 ) from exc
@@ -115,7 +115,7 @@ class S3Service:
         try:
             return await asyncio.to_thread(_download)
         except (ClientError, BotoCoreError) as exc:
-            logger.error(f"Failed to download from S3: {exc}")
+            logger.error("Failed to download from S3: %s", exc)
             raise HTTPException(
                 status_code=500, detail="Failed to download file from storage"
             ) from exc
