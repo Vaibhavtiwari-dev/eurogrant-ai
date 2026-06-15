@@ -27,6 +27,7 @@ vi.mock('@/context/AuthContext', () => ({
 
 vi.mock('@/components/dashboard/Sidebar', () => ({default: () => null}));
 vi.mock('@/components/dashboard/Header', () => ({default: () => null}));
+vi.mock('@/components/dashboard/BillingSettings', () => ({default: () => null}));
 vi.mock('@/lib/animations', () => ({containerVariants: {}, itemVariants: {}}));
 
 describe('SettingsPage', () => {
