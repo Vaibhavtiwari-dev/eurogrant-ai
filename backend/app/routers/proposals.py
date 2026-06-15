@@ -1,9 +1,12 @@
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from io import BytesIO
 from typing import Any, cast
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import StreamingResponse
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -13,9 +16,11 @@ from ..errors import error_response
 from ..limiter import limiter
 from ..services.proposal_content import (
     InvalidTipTapDocument,
+    markdown_to_tiptap,
     rebuild_proposal_content,
     validate_and_normalize_tiptap_document,
 )
+from ..services.proposal_export import ExportSection, generate_docx, generate_pdf
 from ..worker import generate_proposal_task, regenerate_proposal_section_task
 
 logger = logging.getLogger(__name__)
@@ -30,6 +35,22 @@ _MONTHLY_LIMITS: dict[str, int | None] = {
     "growth": 5,
     "scale": 15,
     "agency": None,  # unlimited
+}
+
+_TRACKING_TRANSITIONS: dict[models.ApplicationStatus, set[models.ApplicationStatus]] = {
+    models.ApplicationStatus.DRAFT: {
+        models.ApplicationStatus.SUBMITTED,
+        models.ApplicationStatus.WITHDRAWN,
+    },
+    models.ApplicationStatus.SUBMITTED: {
+        models.ApplicationStatus.DRAFT,
+        models.ApplicationStatus.WON,
+        models.ApplicationStatus.LOST,
+        models.ApplicationStatus.WITHDRAWN,
+    },
+    models.ApplicationStatus.WON: {models.ApplicationStatus.DRAFT},
+    models.ApplicationStatus.LOST: {models.ApplicationStatus.DRAFT},
+    models.ApplicationStatus.WITHDRAWN: {models.ApplicationStatus.DRAFT},
 }
 
 
@@ -181,6 +202,160 @@ def get_proposal(
 ) -> models.Proposal:
     """Retrieve a single proposal by its ID (organisation-scoped)."""
     return _get_scoped_proposal(db, proposal_id, current_user.organization_id)
+
+
+@router.patch("/{proposal_id}", response_model=schemas.ProposalOut)
+def update_proposal_tracking(
+    proposal_id: int,
+    payload: schemas.ProposalTrackingUpdate,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(
+        require_role([models.RoleEnum.ADMIN, models.RoleEnum.WRITER])
+    ),
+) -> models.Proposal:
+    proposal = _get_scoped_proposal(db, proposal_id, current_user.organization_id)
+    if payload.application_status == proposal.application_status:
+        return proposal
+    allowed = _TRACKING_TRANSITIONS[proposal.application_status]
+    if payload.application_status not in allowed:
+        error_response(
+            "INVALID_STATUS_TRANSITION",
+            (
+                f"Cannot change application status from {proposal.application_status.value} "
+                f"to {payload.application_status.value}."
+            ),
+            status_code=409,
+        )
+    proposal.application_status = payload.application_status
+    if payload.application_status == models.ApplicationStatus.SUBMITTED:
+        proposal.submitted_at = datetime.now(UTC)
+    elif payload.application_status == models.ApplicationStatus.DRAFT:
+        proposal.submitted_at = None
+    db.commit()
+    db.refresh(proposal)
+    return proposal
+
+
+@router.get(
+    "/{proposal_id}/feedback",
+    response_model=list[schemas.ProposalFeedbackOut],
+)
+def list_proposal_feedback(
+    proposal_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user),
+) -> list[models.ProposalFeedback]:
+    _get_scoped_proposal(db, proposal_id, current_user.organization_id)
+    return (
+        db.query(models.ProposalFeedback)
+        .filter(models.ProposalFeedback.proposal_id == proposal_id)
+        .order_by(models.ProposalFeedback.created_at.desc())
+        .all()
+    )
+
+
+@router.post(
+    "/{proposal_id}/feedback",
+    response_model=schemas.ProposalFeedbackOut,
+    status_code=201,
+)
+@limiter.limit("5/minute")
+def create_proposal_feedback(
+    request: Request,
+    proposal_id: int,
+    payload: schemas.ProposalFeedbackCreate,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user),
+) -> models.ProposalFeedback:
+    proposal = _get_scoped_proposal(db, proposal_id, current_user.organization_id)
+    if proposal.status not in {
+        models.ProposalStatus.COMPLETED,
+        models.ProposalStatus.COMPLETED_WITH_ERRORS,
+    }:
+        error_response(
+            "PROPOSAL_NOT_READY",
+            "Feedback can be submitted after proposal generation finishes.",
+            status_code=409,
+        )
+    today = datetime.now(UTC).date()
+    week_start = today - timedelta(days=today.weekday())
+    feedback = models.ProposalFeedback(
+        proposal_id=proposal.id,
+        user_id=current_user.id,
+        week_start=week_start,
+        rating=payload.rating,
+        comments=payload.comments,
+    )
+    db.add(feedback)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        error_response(
+            "WEEKLY_FEEDBACK_EXISTS",
+            "You have already submitted feedback for this proposal this week.",
+            status_code=409,
+        )
+    db.refresh(feedback)
+    return feedback
+
+
+@router.get("/{proposal_id}/export/{export_format}")
+@limiter.limit("10/minute")
+def export_proposal(
+    request: Request,
+    proposal_id: int,
+    export_format: str,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user),
+) -> StreamingResponse:
+    proposal = _get_scoped_proposal(db, proposal_id, current_user.organization_id)
+    normalized_format = export_format.lower()
+    if normalized_format not in {"pdf", "docx"}:
+        error_response(
+            "UNSUPPORTED_EXPORT_FORMAT",
+            "Supported export formats are pdf and docx.",
+            status_code=404,
+        )
+    sections = (
+        db.query(models.ProposalSection)
+        .filter(models.ProposalSection.proposal_id == proposal.id)
+        .order_by(models.ProposalSection.order, models.ProposalSection.id)
+        .all()
+    )
+    export_sections = [
+        ExportSection(name=section.name, content_json=section.content_json)
+        for section in sections
+    ]
+    if not export_sections and proposal.content:
+        export_sections = [
+            ExportSection(
+                name="Proposal",
+                content_json=markdown_to_tiptap(proposal.content),
+            )
+        ]
+    if not export_sections:
+        error_response(
+            "PROPOSAL_NOT_READY",
+            "The proposal has no content to export.",
+            status_code=409,
+        )
+
+    if normalized_format == "pdf":
+        content = generate_pdf(proposal.id, proposal.grant.title, export_sections)
+        media_type = "application/pdf"
+    else:
+        content = generate_docx(proposal.id, proposal.grant.title, export_sections)
+        media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    filename = f"eurogrant-proposal-{proposal.id}.{normalized_format}"
+    return StreamingResponse(
+        BytesIO(content),
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "private, no-store",
+        },
+    )
 
 
 @router.get("/{proposal_id}/sections", response_model=list[schemas.ProposalSectionOut])
