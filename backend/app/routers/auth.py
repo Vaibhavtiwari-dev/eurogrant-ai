@@ -18,13 +18,13 @@ def create_invitation(
 ):
     import secrets
     from datetime import UTC, datetime, timedelta
-    
+
     if invite_in.organization_id != current_user.organization_id:
         raise HTTPException(status_code=403, detail="Cannot invite to other organizations")
-        
+
     invite_code = secrets.token_urlsafe(32)
     expires_at = datetime.now(UTC) + timedelta(days=7)
-    
+
     invitation = models.UserInvitation(
         email=invite_in.email,
         organization_id=invite_in.organization_id,
@@ -46,18 +46,18 @@ def register(
     db: Session = Depends(database.get_db),
 ) -> models.User:
     from datetime import UTC, datetime
-    
+
     invitation = db.query(models.UserInvitation).filter(
         models.UserInvitation.invite_code == user_in.invite_code,
-        models.UserInvitation.is_used == False,
+        models.UserInvitation.is_used.is_(False),
     ).first()
-    
+
     if not invitation:
         raise HTTPException(status_code=403, detail="Invalid or used invite code")
-        
+
     if invitation.expires_at.replace(tzinfo=UTC) < datetime.now(UTC):
         raise HTTPException(status_code=403, detail="Invite code expired")
-        
+
     if invitation.email.lower() != user_in.email.lower():
         raise HTTPException(status_code=400, detail="Email does not match invitation")
 
@@ -86,10 +86,10 @@ def register(
         role=user_role,
     )
     db.add(new_user)
-    
+
     # Mark invitation as used
     invitation.is_used = True
-    
+
     db.commit()
     db.refresh(new_user)
     return new_user
@@ -192,14 +192,15 @@ def refresh_token(
     response: Response,
     db: Session = Depends(database.get_db),
 ) -> dict:
+    from typing import Any
+
     import jwt
     from jwt.exceptions import PyJWTError as JWTError
-    from typing import Any
-    
+
     refresh_token = request.cookies.get("refresh_token")
     if not refresh_token:
         raise HTTPException(status_code=401, detail="Refresh token missing")
-    
+
     try:
         payload = jwt.decode(refresh_token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM], options={"verify_exp": True})
         email: Any = payload.get("sub")
@@ -208,11 +209,11 @@ def refresh_token(
             raise HTTPException(status_code=401, detail="Invalid refresh token")
     except JWTError as exc:
         raise HTTPException(status_code=401, detail="Invalid refresh token") from exc
-    
+
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User inactive or deleted")
-        
+
     access_token = auth.create_access_token(data={"sub": user.email})
     is_localhost = settings.ENVIRONMENT == "development"
     response.set_cookie(

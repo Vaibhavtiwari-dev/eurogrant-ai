@@ -57,9 +57,9 @@ export async function apiFetch<T>(
           
           if (refreshRes.ok) {
             // Retry original request
-            return await apiFetch(endpoint, options, schema as any);
+            return await apiFetch(endpoint, options, schema as z.ZodSchema<T>);
           }
-        } catch (e) {
+        } catch {
           // Fall through to redirect
         }
         
@@ -71,7 +71,7 @@ export async function apiFetch<T>(
         window.location.href = "/login";
       }
     }
-    return response as any;
+    return response as unknown as T;
   }
 
   if (response.ok && schema) {

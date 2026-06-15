@@ -42,7 +42,6 @@ class UserInvitationOut(BaseModel):
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
-    organization_name: str  # First user creates the org
     invite_code: str
 
     @field_validator("password")

@@ -10,6 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import auth, database, models
 
+
 def create_admin(email: str, password: str, full_name: str, org_name: str):
     db: Session = next(database.get_db())
     try:
@@ -50,7 +51,7 @@ if __name__ == "__main__":
     parser.add_argument("--password", required=False, help="Admin password")
     parser.add_argument("--name", required=True, help="Admin full name")
     parser.add_argument("--org", required=True, help="Organization name")
-    
+
     args = parser.parse_args()
     password = args.password or os.environ.get("ADMIN_PASSWORD") or getpass.getpass("Enter admin password: ")
     create_admin(args.email, password, args.name, args.org)

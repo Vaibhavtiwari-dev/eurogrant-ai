@@ -41,138 +41,140 @@ def test_auth_login_invalid():
 
 
 def test_auth_register_success(db_session):
-    # Ensure MASTER_INVITE_CODE is set for tests
-    from app.config import settings
+    from app import models
+    from datetime import datetime, UTC, timedelta
 
-    settings.MASTER_INVITE_CODE = "testcode"
     unique_id = str(uuid.uuid4())[:8]
+    email = f"new_{unique_id}@example.com"
+
+    org = models.Organization(name=f"New Org {unique_id}")
+    db_session.add(org)
+    db_session.commit()
+    sys_user = models.User(
+        email=f"sys_{unique_id}_{uuid.uuid4().hex[:4]}@sys.com", 
+        hashed_password="sys", 
+        full_name="sys", 
+        organization_id=org.id, 
+        role="admin", 
+        is_active=True
+    )
+    db_session.add(sys_user)
+    db_session.commit()
+    
+    
+
+    invitation = models.UserInvitation(
+        invited_by_id=sys_user.id,
+        email=email,
+        organization_id=org.id,
+        invite_code=f"testcode_{unique_id}",
+        expires_at=datetime.now(UTC) + timedelta(days=7),
+    )
+    db_session.add(invitation)
+    db_session.commit()
+
     payload = {
-        "email": f"new_{unique_id}@example.com",
+        "email": email,
         "password": "StrongP@ss1",
         "full_name": "New User",
-        "organization_name": f"New Org {unique_id}",
-        "invite_code": "testcode",
+        "invite_code": f"testcode_{unique_id}",
     }
 
     response = client.post("/api/v1/auth/register", json=payload)
+    print(response.json())
     assert response.status_code == 201
     data = response.json()
     assert data["email"] == payload["email"]
-    assert data["role"] == "admin"  # First user in org should be admin
+    assert data["role"] == "viewer"
+
 
 
 def test_auth_register_duplicate_email(db_session):
-    from app.config import settings
+    from app import models
+    from datetime import datetime, UTC, timedelta
 
-    settings.MASTER_INVITE_CODE = "testcode"
     unique_id = str(uuid.uuid4())[:8]
     email = f"dup_{unique_id}@example.com"
+
+    org = models.Organization(name=f"Dup Org {unique_id}")
+    db_session.add(org)
+    db_session.commit()
+    sys_user = models.User(
+        email=email,
+        hashed_password="sys",
+        full_name="sys",
+        organization_id=org.id,
+        role="admin",
+        is_active=True
+    )
+    db_session.add(sys_user)
+    db_session.commit()
+
+    invitation = models.UserInvitation(
+        invited_by_id=sys_user.id,
+        email=email,
+        organization_id=org.id,
+        invite_code=f"testcode_{unique_id}",
+        expires_at=datetime.now(UTC) + timedelta(days=7),
+    )
+    db_session.add(invitation)
+    db_session.commit()
+
     payload = {
         "email": email,
         "password": "StrongP@ss1",
         "full_name": "User 1",
-        "organization_name": f"Org {unique_id}",
-        "invite_code": "testcode",
+        "invite_code": f"testcode_{unique_id}",
     }
 
-    # First registration
-    client.post("/api/v1/auth/register", json=payload)
-
-    # Second registration with same email
     response = client.post("/api/v1/auth/register", json=payload)
     assert response.status_code == 400
     assert "Email already registered" in response.json()["detail"]
 
 
-def test_existing_org_accepts_exact_existing_user_domain(db_session):
-    from app import models
-    from app.config import settings
-
-    settings.MASTER_INVITE_CODE = "testcode"
-    unique_id = str(uuid.uuid4())[:8]
-    org_name = f"Acme {unique_id}"
-    owner_email = f"owner_{unique_id}@acme.example"
-
-    first = client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": owner_email,
-            "password": "StrongP@ss1",
-            "full_name": "Owner",
-            "organization_name": org_name,
-            "invite_code": "testcode",
-        },
-    )
-    assert first.status_code == 201
-
-    second = client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": f"member_{unique_id}@acme.example",
-            "password": "StrongP@ss1",
-            "full_name": "Member",
-            "organization_name": org_name,
-            "invite_code": "testcode",
-        },
-    )
-
-    assert second.status_code == 201
-    assert second.json()["role"] == "viewer"
-    users = db_session.query(models.User).filter(models.User.email.like(f"%{unique_id}%")).all()
-    assert len(users) == 2
-
-
-def test_existing_org_rejects_lookalike_domain(db_session):
-    from app.config import settings
-
-    settings.MASTER_INVITE_CODE = "testcode"
-    unique_id = str(uuid.uuid4())[:8]
-    org_name = f"Acme Security {unique_id}"
-
-    first = client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": f"owner_{unique_id}@acme.example",
-            "password": "StrongP@ss1",
-            "full_name": "Owner",
-            "organization_name": org_name,
-            "invite_code": "testcode",
-        },
-    )
-    assert first.status_code == 201
-
-    response = client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": f"attacker_{unique_id}@evilacme.example",
-            "password": "StrongP@ss1",
-            "full_name": "Attacker",
-            "organization_name": org_name,
-            "invite_code": "testcode",
-        },
-    )
-
-    assert response.status_code == 400
-    assert "domain does not match" in response.json()["detail"]
 
 
 def test_auth_login_success(db_session):
+    from app import models
+    from datetime import datetime, UTC, timedelta
+
     unique_id = str(uuid.uuid4())[:8]
     email = f"user_{unique_id}@example.com"
     password = "StrongP@ss1"
 
-    # Register first
-    from app.config import settings
+    org = models.Organization(name=f"Login Org {unique_id}")
+    db_session.add(org)
+    db_session.commit()
+    sys_user = models.User(
+        email=f"sys_{unique_id}_{uuid.uuid4().hex[:4]}@sys.com", 
+        hashed_password="sys", 
+        full_name="sys", 
+        organization_id=org.id, 
+        role="admin", 
+        is_active=True
+    )
+    db_session.add(sys_user)
+    db_session.commit()
+    
+    
 
-    settings.MASTER_INVITE_CODE = "testcode"
+    invitation = models.UserInvitation(
+        invited_by_id=sys_user.id,
+        email=email,
+        organization_id=org.id,
+        invite_code=f"testcode_{unique_id}",
+        expires_at=datetime.now(UTC) + timedelta(days=7),
+    )
+    db_session.add(invitation)
+    db_session.commit()
+
     client.post(
         "/api/v1/auth/register",
         json={
             "email": email,
             "password": password,
             "full_name": "User",
-            "organization_name": f"Org {unique_id}",
-            "invite_code": "testcode",
+            "invite_code": f"testcode_{unique_id}",
         },
     )
 
@@ -182,9 +184,9 @@ def test_auth_login_success(db_session):
         f"Expected 200, got {response.status_code}: {response.json()}"
     )
     data = response.json()
-    # JWT is delivered exclusively via httpOnly cookie (security) — not in response body
     assert "access_token" not in data, "JWT must not appear in response body"
     assert data.get("message") == "Authentication successful"
+
 
 
 def test_inactive_user_cannot_login(db_session):

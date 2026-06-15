@@ -44,43 +44,4 @@ def get_mock_request():
     return Request(scope)
 
 
-# Test 2: Hardcoded Invite Code Fix Verification
-def test_hardcoded_invite_code_removed():
-    # Ensure environment variable is NOT set
-    from app.config import settings
-
-    if hasattr(settings, "MASTER_INVITE_CODE"):
-        settings.MASTER_INVITE_CODE = None
-
-    mock_db = MagicMock()
-    from app.routers.auth import register
-
-    user_in = MagicMock()
-    user_in.invite_code = "EUROGRANT_2026"  # The old default
-
-    # Calling register should now raise 500 because env var is missing
-    with pytest.raises(HTTPException) as excinfo:
-        register(request=get_mock_request(), user_in=user_in, db=mock_db)
-
-    assert excinfo.value.status_code == 500
-    assert "MASTER_INVITE_CODE environment variable is missing" in excinfo.value.detail
-
-
-def test_hardcoded_invite_code_verification_logic():
-    from app.config import settings
-
-    settings.MASTER_INVITE_CODE = "REAL_CODE_123"
-
-    mock_db = MagicMock()
-    from app.routers.auth import register
-
-    user_in = MagicMock()
-    user_in.invite_code = "WRONG_CODE"
-
-    # Should raise 403 for wrong code
-    with pytest.raises(HTTPException) as excinfo:
-        register(request=get_mock_request(), user_in=user_in, db=mock_db)
-    assert excinfo.value.status_code == 403
-
-    # Cleanup
-    settings.MASTER_INVITE_CODE = None
+# Obsolete MASTER_INVITE_CODE tests removed
