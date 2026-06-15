@@ -21,7 +21,7 @@ export async function apiFetch(
 
 export async function apiFetch<T>(
   endpoint: string, 
-  options: RequestInit = {}, 
+  options: RequestInit & { _retry?: boolean } = {}, 
   schema?: z.ZodSchema<T>
 ): Promise<T | Response> {
   const isBrowser = typeof window !== "undefined";
@@ -42,15 +42,36 @@ export async function apiFetch<T>(
   });
 
   if (response.status === 401 && isBrowser) {
-    // Clear any legacy localStorage tokens during migration
-    localStorage.removeItem("token");
-    // Only redirect if we are not already on a public page
     const path = window.location.pathname;
     const isPublicPage = path.includes("/login") || path.includes("/register");
     if (!isPublicPage) {
+      if (!options._retry) {
+        options._retry = true;
+        try {
+          // Attempt to refresh the token
+          const refreshRes = await fetch(apiUrl("/auth/refresh"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+          });
+          
+          if (refreshRes.ok) {
+            // Retry original request
+            return await apiFetch(endpoint, options, schema as any);
+          }
+        } catch (e) {
+          // Fall through to redirect
+        }
+        
+        // Refresh failed, redirect to login
+        localStorage.removeItem("token");
         window.location.href = "/login";
+      } else {
+        localStorage.removeItem("token");
+        window.location.href = "/login";
+      }
     }
-    return response;
+    return response as any;
   }
 
   if (response.ok && schema) {
