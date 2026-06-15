@@ -1,18 +1,43 @@
 import json
 import re
-from datetime import datetime
+from datetime import date, datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 from .config import settings
-from .models import ProposalStatus, RoleEnum, SectionStatus
+from .models import (
+    ApplicationStatus,
+    ProposalStatus,
+    RoleEnum,
+    SectionStatus,
+    SubscriptionStatus,
+)
 
 
 # Auth Schemas
 class UserBase(BaseModel):
     email: EmailStr
     full_name: str | None = None
+
+
+class UserInvitationCreate(BaseModel):
+    email: EmailStr
+    organization_id: int
+
+
+class UserInvitationOut(BaseModel):
+    id: int
+    email: EmailStr
+    organization_id: int
+    invited_by_id: int
+    invite_code: str
+    expires_at: datetime
+    is_used: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserCreate(UserBase):
@@ -53,6 +78,7 @@ class PasswordChange(BaseModel):
 
 class UserUpdate(BaseModel):
     full_name: str | None = Field(None, min_length=1, max_length=255)
+    model_config = ConfigDict(extra="forbid")
 
 
 class Token(BaseModel):
@@ -96,6 +122,7 @@ class OrganizationUpdate(BaseModel):
     core_technologies: str | None = None
     match_threshold: float | None = Field(None, ge=0.0, le=1.0)  # 0.0–1.0 probability range
     alert_email_enabled: bool | None = None
+    model_config = ConfigDict(extra="forbid")
 
 
 # Dashboard Schemas
@@ -196,6 +223,8 @@ class ProposalOut(BaseModel):
     status: ProposalStatus
     content: str | None = None
     compatibility_score: float | None = None
+    application_status: ApplicationStatus
+    submitted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime | None = None
 
@@ -237,3 +266,53 @@ class ProposalSectionUpdate(BaseModel):
 
 class ProposalSectionRegenerate(BaseModel):
     expected_version: int = Field(..., ge=1)
+
+
+class ProposalTrackingUpdate(BaseModel):
+    application_status: ApplicationStatus
+
+
+class ProposalFeedbackCreate(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    comments: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("comments")
+    @classmethod
+    def normalize_comments(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+
+class ProposalFeedbackOut(BaseModel):
+    id: int
+    proposal_id: int
+    user_id: int
+    week_start: date
+    rating: int
+    comments: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BillingTier(StrEnum):
+    GROWTH = "growth"
+    SCALE = "scale"
+    AGENCY = "agency"
+
+
+class BillingCheckoutCreate(BaseModel):
+    tier: BillingTier
+
+
+class BillingSessionOut(BaseModel):
+    url: str
+
+
+class BillingStatusOut(BaseModel):
+    tier: str
+    status: SubscriptionStatus
+    current_period_end: datetime | None = None
+    has_customer: bool
