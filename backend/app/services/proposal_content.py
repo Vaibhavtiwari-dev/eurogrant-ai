@@ -219,6 +219,7 @@ def rebuild_proposal_content(db: Session, proposal_id: int) -> str:
     rendered: list[str] = []
     for section in sections:
         body = tiptap_to_markdown(section.content_json).strip()
+        section.content_text = body  # Plain-text mirror for search
         rendered.append(f"## {section.name}\n\n{body}".strip())
     snapshot = "\n\n".join(rendered)
     proposal.content = snapshot

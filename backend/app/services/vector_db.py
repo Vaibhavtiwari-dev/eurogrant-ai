@@ -52,14 +52,51 @@ class VectorService:
                 logger.info(
                     "Created new Pinecone index: %s. Waiting for readiness...", self.index_name
                 )
-                import time
+                self._wait_for_index()
+        except Exception as e:
+            logger.warning("Could not check or create Pinecone index: %s", e)
 
-                # Poll for readiness instead of fixed sleep (M11)
-                for _attempt in range(10):
-                    time.sleep(1)
-                    stats = self.pc.Index(self.index_name).describe_index_stats()
-                    if stats.get("total_vector_count", 0) > 0:
-                        break
+        try:
+            self.index = self.pc.Index(self.index_name)  # type: ignore
+        except Exception as e:
+            logger.error("Failed to connect to Pinecone index: %s", e)
+            self.index = None
+
+    def _wait_for_index(self, max_wait: int = 30) -> None:
+        """Wait for Pinecone index to be ready with exponential backoff.
+        
+        Args:
+            max_wait: Maximum seconds to wait before giving up.
+        """
+        import time
+        
+        for attempt in range(max_wait):
+            try:
+                stats = self.pc.Index(self.index_name).describe_index_stats()
+                if stats.get("total_vector_count", 0) > 0:
+                    logger.info("Pinecone index ready after %d seconds", attempt + 1)
+                    return
+            except Exception as e:
+                logger.warning("Pinecone index check failed (attempt %d): %s", attempt + 1, e)
+            
+            # Exponential backoff: 0.5, 1, 2, 4, 8, 16, 30 (capped)
+            sleep_time = min(2 ** attempt * 0.5, 30)
+            time.sleep(sleep_time)
+        
+        logger.warning("Pinecone index not ready after %d seconds — continuing anyway", max_wait)
+        try:
+            active_indexes = [idx.name for idx in self.pc.list_indexes()]
+            if self.index_name not in active_indexes:
+                self.pc.create_index(
+                    name=self.index_name,
+                    dimension=self.dimension,
+                    metric="cosine",
+                    spec=ServerlessSpec(cloud="aws", region=settings.PINECONE_ENVIRONMENT),
+                )
+                logger.info(
+                    "Created new Pinecone index: %s. Waiting for readiness...", self.index_name
+                )
+                self._wait_for_index()
         except Exception as e:
             logger.warning("Could not check or create Pinecone index: %s", e)
 
