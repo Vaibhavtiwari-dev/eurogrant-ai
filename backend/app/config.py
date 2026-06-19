@@ -2,12 +2,22 @@ import ipaddress
 from typing import Self
 from urllib.parse import urlparse
 
+from enum import Enum
+
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+class EnvironmentEnum(str, Enum):
+    """Allowed environment values for strict validation."""
+    DEVELOPMENT = "development"
+    TESTING = "testing"
+    STAGING = "staging"
+    PRODUCTION = "production"
+
+
 class Settings(BaseSettings):
-    ENVIRONMENT: str = "production"
+    ENVIRONMENT: EnvironmentEnum = EnvironmentEnum.PRODUCTION
     DATABASE_URL: str
 
     JWT_SECRET: str
@@ -59,6 +69,34 @@ class Settings(BaseSettings):
     TRUSTED_PROXY_CIDRS: str = "127.0.0.1/32,::1/128"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    def __repr__(self) -> str:
+        """Mask sensitive fields in string representation to prevent API key exposure in logs."""
+        safe_fields = {}
+        sensitive_keywords = ["API_KEY", "SECRET", "PASSWORD", "TOKEN"]
+        for key, value in self.__dict__.items():
+            if any(s in key.upper() for s in sensitive_keywords):
+                safe_fields[key] = "***MASKED***" if value else None
+            else:
+                safe_fields[key] = value
+        return f"Settings({safe_fields})"
+
+
+def mask_sensitive(value: str | None, show_last: int = 4) -> str:
+    """Mask sensitive string for safe logging.
+
+    Args:
+        value: The sensitive string to mask.
+        show_last: Number of characters to show at the end.
+
+    Returns:
+        Masked string like '****abcd' or 'None' if value is None.
+    """
+    if not value:
+        return "None"
+    if len(value) <= show_last:
+        return "***"
+    return "*" * (len(value) - show_last) + value[-show_last:]
 
     @model_validator(mode="after")
     def validate_production_redis(self) -> Self:
