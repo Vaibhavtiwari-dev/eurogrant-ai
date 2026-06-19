@@ -16,46 +16,47 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
-ALLOWED_EXTENSIONS = {"pdf", "docx"}
 MAX_FILE_SIZE = 25 * 1024 * 1024  # 25MB
 
 # Magic-byte signature map — guards against extension spoofing (CWE-434)
+# Validation is based EXCLUSIVELY on magic bytes, not file extensions
 ALLOWED_SIGNATURES = {
     "pdf": [b"%PDF"],
     "docx": [b"PK"],  # DOCX is a ZIP archive starting with PK
 }
 
-
-def get_file_extension(filename: str) -> str:
-    return filename.split(".")[-1].lower() if "." in filename else ""
-
-
-def _validate_file_signature(content: bytes, extension: str) -> bool:
-    """Validate magic bytes match expected file signature for the extension."""
-    signatures = ALLOWED_SIGNATURES.get(extension, [])
-    if not signatures:
-        return False
-    return any(content.startswith(sig) for sig in signatures)
+# Content types for each extension (used after magic-byte validation)
+CONTENT_TYPES = {
+    "pdf": {"application/pdf", "application/x-pdf"},
+    "docx": {
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/msword",
+    },
+}
 
 
-def _validate_mime_match(content: bytes, content_type: str, extension: str) -> bool:
+def _validate_file_by_magic_bytes(content: bytes) -> str | None:
+    """Validate file by magic bytes only. Returns extension if valid, None otherwise.
+    
+    This is the primary validation method — extension-based validation is removed
+    to prevent extension spoofing attacks (CWE-434).
+    """
+    for ext, signatures in ALLOWED_SIGNATURES.items():
+        if any(content.startswith(sig) for sig in signatures):
+            return ext
+    return None
+
+
+def _validate_mime_match(content_type: str, extension: str) -> bool:
     """Validate declared content_type is plausible for the file extension."""
-    allowed = {
-        "pdf": {"application/pdf", "application/x-pdf"},
-        "docx": {
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/msword",
-        },
-    }
-    expected = allowed.get(extension, set())
-    # Accept both declared type and common alternatives
+    expected = CONTENT_TYPES.get(extension, set())
     if not expected:
         return True
     # content_type can be something like "application/pdf; charset=utf-8"
     base_type = content_type.split(";")[0].strip()
     if base_type not in expected:
         logger.warning(
-            f"Content-Type '{base_type}' does not match extension '{extension}' — rejecting"
+            f"Content-Type '{base_type}' does not match detected extension '{extension}' — rejecting"
         )
         return False
     return True
@@ -96,33 +97,30 @@ async def upload_company_document(
             status_code=status.HTTP_400_BAD_REQUEST, detail="File too large. Maximum size is 25MB."
         )
 
-    # BE-2: Validate extension
+    # Validate filename exists
     if not file.filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Filename is required")
-    extension = get_file_extension(file.filename)
-    if extension not in ALLOWED_EXTENSIONS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported file extension. Allowed: {', '.join(ALLOWED_EXTENSIONS)}",
-        )
 
-    # HIGH-1: Validate magic bytes match expected signature for extension
+    # Validate file by magic bytes ONLY (not extension) — prevents extension spoofing
     file.file.seek(0)
     header = file.file.read(8)
     file.file.seek(0)
-    if not _validate_file_signature(header, extension):
+    
+    extension = _validate_file_by_magic_bytes(header)
+    if extension is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File content does not match its declared extension (.{extension})",
+            detail="Unsupported file type. Only PDF and DOCX files are accepted.",
         )
 
-    # HIGH-1: Validate declared content-type is plausible for the extension
-    if file.content_type and not _validate_mime_match(header, file.content_type, extension):
+    # Validate declared content-type is plausible for the detected extension
+    if file.content_type and not _validate_mime_match(file.content_type, extension):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Declared content-type does not match file extension",
+            detail="Declared content-type does not match file content",
         )
 
+    # Additional DOCX validation
     if extension == "docx":
         file.file.seek(0)
         file_content = file.file.read()

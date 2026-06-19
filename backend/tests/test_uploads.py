@@ -53,7 +53,7 @@ def test_upload_document_invalid_extension(authenticated_client):
     )
 
     assert response.status_code == 400
-    assert "Unsupported file extension" in response.json()["detail"]
+    assert "Unsupported file type" in response.json()["detail"]
 
 
 def test_upload_document_too_large(authenticated_client):
