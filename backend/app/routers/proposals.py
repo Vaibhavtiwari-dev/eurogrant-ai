@@ -159,6 +159,7 @@ def create_proposal(
         grant_id=payload.grant_id,
         status=models.ProposalStatus.PENDING,
         generation_job_id=str(uuid.uuid4()),
+        created_by=current_user.id,
     )
     db.add(proposal)
     db.commit()
@@ -248,7 +249,10 @@ def list_proposal_feedback(
     _get_scoped_proposal(db, proposal_id, current_user.organization_id)
     return (
         db.query(models.ProposalFeedback)
-        .filter(models.ProposalFeedback.proposal_id == proposal_id)
+        .filter(
+            models.ProposalFeedback.proposal_id == proposal_id,
+            models.ProposalFeedback.user_id == current_user.id,  # Per-user filtering
+        )
         .order_by(models.ProposalFeedback.created_at.desc())
         .all()
     )
