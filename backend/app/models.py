@@ -224,7 +224,9 @@ class ProposalSection(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     weight: Mapped[float | None] = mapped_column(Float, nullable=True)
     content_json: Mapped[dict] = mapped_column(JSON, nullable=False)
-    content_text: Mapped[str | None] = mapped_column(Text, nullable=True)  # Plain-text mirror for search
+    content_text: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # Plain-text mirror for search
     order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[SectionStatus] = mapped_column(
         Enum(SectionStatus), nullable=False, default=SectionStatus.PENDING

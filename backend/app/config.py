@@ -1,15 +1,15 @@
 import ipaddress
+from enum import StrEnum
 from typing import Self
 from urllib.parse import urlparse
-
-from enum import Enum
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class EnvironmentEnum(str, Enum):
+class EnvironmentEnum(StrEnum):
     """Allowed environment values for strict validation."""
+
     DEVELOPMENT = "development"
     TESTING = "testing"
     STAGING = "staging"
@@ -81,26 +81,9 @@ class Settings(BaseSettings):
                 safe_fields[key] = value
         return f"Settings({safe_fields})"
 
-
-def mask_sensitive(value: str | None, show_last: int = 4) -> str:
-    """Mask sensitive string for safe logging.
-
-    Args:
-        value: The sensitive string to mask.
-        show_last: Number of characters to show at the end.
-
-    Returns:
-        Masked string like '****abcd' or 'None' if value is None.
-    """
-    if not value:
-        return "None"
-    if len(value) <= show_last:
-        return "***"
-    return "*" * (len(value) - show_last) + value[-show_last:]
-
     @model_validator(mode="after")
     def validate_production_redis(self) -> Self:
-        if self.ENVIRONMENT != "production":
+        if self.ENVIRONMENT != EnvironmentEnum.PRODUCTION:
             return self
 
         for redis_url in (self.CELERY_BROKER_URL, self.CELERY_RESULT_BACKEND):
@@ -125,6 +108,23 @@ def _is_private_redis_host(hostname: str | None) -> bool:
         return ipaddress.ip_address(hostname).is_private
     except ValueError:
         return hostname.endswith(".internal") or hostname.endswith(".local")
+
+
+def mask_sensitive(value: str | None, show_last: int = 4) -> str:
+    """Mask sensitive string for safe logging.
+
+    Args:
+        value: The sensitive string to mask.
+        show_last: Number of characters to show at the end.
+
+    Returns:
+        Masked string like '****abcd' or 'None' if value is None.
+    """
+    if not value:
+        return "None"
+    if len(value) <= show_last:
+        return "***"
+    return "*" * (len(value) - show_last) + value[-show_last:]
 
 
 settings = Settings()  # type: ignore

@@ -37,7 +37,7 @@ CONTENT_TYPES = {
 
 def _validate_file_by_magic_bytes(content: bytes) -> str | None:
     """Validate file by magic bytes only. Returns extension if valid, None otherwise.
-    
+
     This is the primary validation method — extension-based validation is removed
     to prevent extension spoofing attacks (CWE-434).
     """
@@ -105,7 +105,6 @@ async def upload_company_document(
     file.file.seek(0)
     header = file.file.read(8)
     file.file.seek(0)
-    
     extension = _validate_file_by_magic_bytes(header)
     if extension is None:
         raise HTTPException(

@@ -64,12 +64,12 @@ class VectorService:
 
     def _wait_for_index(self, max_wait: int = 30) -> None:
         """Wait for Pinecone index to be ready with exponential backoff.
-        
+
         Args:
             max_wait: Maximum seconds to wait before giving up.
         """
         import time
-        
+
         for attempt in range(max_wait):
             try:
                 stats = self.pc.Index(self.index_name).describe_index_stats()
@@ -78,11 +78,11 @@ class VectorService:
                     return
             except Exception as e:
                 logger.warning("Pinecone index check failed (attempt %d): %s", attempt + 1, e)
-            
+
             # Exponential backoff: 0.5, 1, 2, 4, 8, 16, 30 (capped)
-            sleep_time = min(2 ** attempt * 0.5, 30)
+            sleep_time = min(2**attempt * 0.5, 30)
             time.sleep(sleep_time)
-        
+
         logger.warning("Pinecone index not ready after %d seconds — continuing anyway", max_wait)
         try:
             active_indexes = [idx.name for idx in self.pc.list_indexes()]

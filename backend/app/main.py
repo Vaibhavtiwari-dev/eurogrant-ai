@@ -51,7 +51,6 @@ async def security_headers_middleware(request: Request, call_next):
     # Generate a unique nonce for this request's inline styles
     nonce = secrets.token_urlsafe(16)
     request.state.csp_nonce = nonce
-    
     response = await call_next(request)
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["X-Content-Type-Options"] = "nosniff"
