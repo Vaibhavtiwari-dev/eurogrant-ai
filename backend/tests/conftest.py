@@ -10,19 +10,30 @@ TEST_DB_FILE = "test_worker.db"
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB_FILE}"
 
 import uuid
+from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock
 
 from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app import models
 from app.auth import get_current_user
-from app.database import Base, get_db
+from app.database import Base, get_async_db, get_db
 from app.main import app
 
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{TEST_DB_FILE}"
+ASYNC_DATABASE_URL = f"sqlite+aiosqlite:///{TEST_DB_FILE}"
+
+# Sync engine for Celery workers
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Async engine for FastAPI routes
+async_engine = create_async_engine(ASYNC_DATABASE_URL, connect_args={"check_same_thread": False})
+AsyncTestingSessionLocal = async_sessionmaker(
+    async_engine, class_=AsyncSession, expire_on_commit=False
+)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -62,12 +73,20 @@ def override_get_db():
             db.close()
 
 
+async def override_get_async_db() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncTestingSessionLocal() as session:
+        yield session
+        await session.commit()
+
+
 @pytest.fixture(autouse=True)
 def _setup_db_override():
     """Set and tear down the database dependency override for every test."""
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_async_db] = override_get_async_db
     yield
     app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_async_db, None)
 
 
 @pytest.fixture

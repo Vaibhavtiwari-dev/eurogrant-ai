@@ -6,13 +6,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded as RateLimitExceededExc
-from sqlalchemy import text
-from sqlalchemy.orm import Session
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from . import database, models, schemas
+from . import models, schemas
 from .auth import get_current_user
 from .config import EnvironmentEnum, settings
+from .database import get_async_db
 from .limiter import limiter
 from .routers import auth as auth_router
 from .routers import billing as billing_router
@@ -232,14 +233,15 @@ async def read_users_me(current_user: models.User = Depends(get_current_user)):
 async def update_users_me(
     user_update: schemas.UserUpdate,
     current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(database.get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
-    user = db.query(models.User).filter(models.User.id == current_user.id).first()
+    result = await db.execute(select(models.User).where(models.User.id == current_user.id))
+    user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     update_data = user_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(user, key, value)
-    db.commit()
-    db.refresh(user)
+    await db.flush()
+    await db.refresh(user)
     return user

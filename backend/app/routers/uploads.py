@@ -3,7 +3,8 @@ import uuid
 from typing import Any, cast
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import database, models, schemas
 from ..auth import get_current_user, require_role
@@ -64,14 +65,15 @@ def _validate_mime_match(content_type: str, extension: str) -> bool:
 
 @router.get("/documents", response_model=list[schemas.DocumentOut])
 async def list_company_documents(
-    db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)
+    db: AsyncSession = Depends(database.get_async_db),
+    current_user: models.User = Depends(get_current_user),
 ):
-    docs = (
-        db.query(models.CompanyDocument)
-        .filter(models.CompanyDocument.organization_id == current_user.organization_id)
+    result = await db.execute(
+        select(models.CompanyDocument)
+        .where(models.CompanyDocument.organization_id == current_user.organization_id)
         .order_by(models.CompanyDocument.created_at.desc())
-        .all()
     )
+    docs = result.scalars().all()
     return docs
 
 
@@ -82,7 +84,7 @@ async def list_company_documents(
 async def upload_company_document(
     request: Request,
     file: UploadFile = File(...),
-    db: Session = Depends(database.get_db),
+    db: AsyncSession = Depends(database.get_async_db),
     current_user: models.User = Depends(
         require_role([models.RoleEnum.ADMIN, models.RoleEnum.WRITER])
     ),
@@ -147,8 +149,8 @@ async def upload_company_document(
         status=models.DocumentStatus.PENDING,
     )
     db.add(new_doc)
-    db.commit()
-    db.refresh(new_doc)
+    await db.flush()
+    await db.refresh(new_doc)
 
     # Trigger background processing
     cast(Any, process_company_document).delay(new_doc.id)

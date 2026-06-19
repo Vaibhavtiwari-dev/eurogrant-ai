@@ -292,3 +292,4 @@ xxhash==3.7.0
     # via langsmith
 zstandard==0.25.0
     # via langsmith
+aiosqlite==0.20.0
