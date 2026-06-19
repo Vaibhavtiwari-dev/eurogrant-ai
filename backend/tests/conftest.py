@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-os.environ["ENVIRONMENT"] = "testing"
+os.environ["ENVIRONMENT"] = "testing"  # Must match EnvironmentEnum.TESTING value
 
 # Must set DATABASE_URL before any app import so that the worker's SessionLocal
 # (from app.database) connects to the same SQLite file as the test session.
