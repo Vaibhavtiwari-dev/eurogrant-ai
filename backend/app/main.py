@@ -12,7 +12,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import database, models, schemas
 from .auth import get_current_user
-from .config import settings
+from .config import EnvironmentEnum, settings
 from .limiter import limiter
 from .routers import auth as auth_router
 from .routers import billing as billing_router
@@ -25,17 +25,17 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="EuroGrant AI API",
-    docs_url=None if settings.ENVIRONMENT == "production" else "/docs",
-    redoc_url=None if settings.ENVIRONMENT == "production" else "/redoc",
+    docs_url=None if settings.ENVIRONMENT == EnvironmentEnum.PRODUCTION else "/docs",
+    redoc_url=None if settings.ENVIRONMENT == EnvironmentEnum.PRODUCTION else "/redoc",
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceededExc, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 # Determine allowed hosts for TrustedHostMiddleware.
 # Always include localhost variants and known production domains.
-# Add "testserver" only when not in production (test clients send Host: testserver).
+# Add "testserver" only when in testing environment (test clients send Host: testserver).
 _allowed_hosts = ["eurogrant.ai", "www.eurogrant.ai", "localhost", "127.0.0.1"]
-if settings.ENVIRONMENT != "production":
+if settings.ENVIRONMENT == EnvironmentEnum.TESTING:
     _allowed_hosts.append("testserver")
 
 # Security: TrustedHostMiddleware — block requests with unrecognized Host headers
@@ -48,20 +48,28 @@ app.add_middleware(
 # Security: Security Headers Middleware
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next):
+    # Generate a unique nonce for this request's inline styles
+    nonce = secrets.token_urlsafe(16)
+    request.state.csp_nonce = nonce
+    
     response = await call_next(request)
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    # Note: 'unsafe-inline' in style-src is acceptable and required for Tailwind CSS / Next.js.
+    # Use nonce instead of 'unsafe-inline' for CSP compliance
     response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'"
+        f"default-src 'self'; script-src 'self'; style-src 'self' 'nonce-{nonce}'; "
+        f"img-src 'self' data:; font-src 'self'; connect-src 'self'; "
+        f"frame-ancestors 'none'; form-action 'self'; base-uri 'self'"
     )
     response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=(), payment=()"
     response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
     response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+    # Pass nonce to frontend via header
+    response.headers["X-Nonce"] = nonce
     return response
 
 
@@ -93,7 +101,8 @@ async def csrf_protection_middleware(request: Request, call_next):
         origin = request.headers.get("origin")
         referer = request.headers.get("referer")
         allowed_origins = {"http://localhost:3000", "http://127.0.0.1:3000", "https://eurogrant.ai"}
-        if settings.ENVIRONMENT != "production":
+        # Only bypass CSRF for testing environment, not all non-production
+        if settings.ENVIRONMENT == EnvironmentEnum.TESTING:
             allowed_origins.add("http://testserver")
         # If Origin header is present, validate it matches an allowed origin
         if origin:
