@@ -79,3 +79,12 @@ env/
 *.swp
 *.swo
 Thumbs.db
+
+# Obsidian config
+.obsidian/
+
+# Security scan artifacts
+CON
+
+# Temp files
+runs.json
