@@ -2,9 +2,9 @@ services:
   nginx:
     build: ./nginx
     ports:
-      - "127.0.0.1:80:80"
+      - "127.0.0.1:80:8080"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
       interval: 10s
       timeout: 5s
       retries: 5
