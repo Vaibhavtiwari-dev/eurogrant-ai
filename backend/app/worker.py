@@ -8,6 +8,17 @@ from sqlalchemy.exc import IntegrityError
 
 from .config import settings
 
+if settings.SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.celery import CeleryIntegration
+
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment=settings.ENVIRONMENT.value,
+        integrations=[CeleryIntegration()],
+        traces_sample_rate=0.1,
+    )
+
 logger = logging.getLogger(__name__)
 
 celery_app = Celery(
