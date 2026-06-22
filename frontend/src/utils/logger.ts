@@ -1,3 +1,12 @@
+import * as Sentry from '@sentry/nextjs';
+
+if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    tracesSampleRate: 0.1,
+  });
+}
+
 /**
  * Application logger abstraction.
  * In a real-world scenario, you might want to plug this into
@@ -14,6 +23,13 @@ class Logger {
 
   error(...args: unknown[]) {
     console.error('[ERROR]', ...args);
+    if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
+      if (args[0] instanceof Error) {
+        Sentry.captureException(args[0]);
+      } else {
+        Sentry.captureException(new Error(String(args[0])));
+      }
+    }
   }
 
   debug(...args: unknown[]) {
