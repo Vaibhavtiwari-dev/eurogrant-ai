@@ -159,6 +159,34 @@ def test_get_grant_matches_success(db_session, authenticated_client):
         mock_vs.search_grants.assert_called_once()
 
 
+def test_get_grant_matches_empty_when_vector_available(db_session, authenticated_client):
+    """A healthy vector store with no hits returns an empty 200, not a 503/fallback.
+
+    Regression guard: a configured vector backend that legitimately returns no
+    matches must not trigger the degraded SQL fallback (which would fabricate
+    scores in dev or raise 503 in production).
+    """
+    grant = models.Grant(
+        external_id="EE-EMPTY",
+        title="Unmatched Grant",
+        description="Should not appear without a real vector hit.",
+        deadline=datetime(2026, 11, 1, 17, 0, tzinfo=UTC),
+        source_url="https://example.com/grant-empty",
+    )
+    db_session.add(grant)
+    db_session.commit()
+
+    with patch("app.services.matching.get_vector_service") as mock_get_vs:
+        mock_vs = MagicMock()
+        mock_vs.index = object()  # vector store is available/connected
+        mock_vs.search_grants.return_value = []  # but no semantic matches
+        mock_get_vs.return_value = mock_vs
+
+        response = authenticated_client.get("/api/v1/grants/matches")
+        assert response.status_code == 200
+        assert response.json() == []
+
+
 def test_grant_match_unique_per_organization_and_grant(db_session, test_user):
     grant = models.Grant(
         external_id=f"UNIQUE-{test_user.id}",
