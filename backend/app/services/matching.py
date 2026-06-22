@@ -10,10 +10,6 @@ from ..errors import error_response
 from ..services.extraction import extraction_service
 from ..services.vector_db import get_vector_service
 
-# Fallback scoring constants for SQL-based matching path
-BASE_FALLBACK_SCORE = 0.88
-FALLBACK_SCORE_DECAY = 0.05
-
 logger = logging.getLogger(__name__)
 
 
@@ -46,9 +42,10 @@ class GrantMatchingService:
         3. Attempt vector similarity search.
         4. If vector results exist, build GrantMatchOut objects (with
            explanation caching).
-        5. If vector search returned nothing (exception, empty results, or
-           all scores below threshold), fall back to a simple SQL listing
-           with calculated scores.
+        5. If vector search returned nothing AND the vector store is
+           unavailable, degrade: a labelled score-less SQL listing in dev,
+           or a 503 in production (never a fabricated score). A healthy
+           vector store with no hits simply returns an empty list.
         6. Return results sorted descending by score.
 
         Args:
@@ -62,13 +59,28 @@ class GrantMatchingService:
         query_str = self._build_query_parts(org)
         matches_data = self._get_vector_matches(query_str)
         results = self._build_results_from_matches(org, matches_data) if matches_data else []
-        if not results:
+        if not results and not self._vector_available():
+            # Only fall back when the vector store is genuinely unavailable.
+            # A healthy vector store returning nothing means the org simply has
+            # no qualifying matches — that is an empty 200, not a 503, and never
+            # a fabricated score.
             results = self._fallback_results(org)
-        return sorted(results, key=lambda x: x.score, reverse=True)
+        return sorted(results, key=lambda x: x.score if x.score is not None else -1.0, reverse=True)
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _vector_available(self) -> bool:
+        """Return True when the vector backend is configured and connected.
+
+        Distinguishes a genuinely empty result set (return 200 with no matches)
+        from an unavailable vector store (degrade in dev, 503 in production).
+        """
+        try:
+            return get_vector_service().index is not None
+        except Exception:
+            return False
 
     def _get_organization(self, current_user: models.User) -> models.Organization:
         """Fetch the organisation linked to the current user.
@@ -244,6 +256,17 @@ class GrantMatchingService:
         Returns:
             List of GrantMatchOut objects (may be empty).
         """
+        from ..config import EnvironmentEnum, settings
+
+        if settings.ENVIRONMENT in (EnvironmentEnum.PRODUCTION, EnvironmentEnum.STAGING):
+            from ..errors import error_response
+
+            error_response(
+                code="SERVICE_UNAVAILABLE",
+                message="Semantic search is temporarily degraded.",
+                status_code=503,
+            )
+
         grants = self.db.query(models.Grant).limit(5).all()
         if not grants:
             return []
@@ -264,24 +287,21 @@ class GrantMatchingService:
         org_profile_text = self._format_org_profile(org)
         results: list[schemas.GrantMatchOut] = []
 
-        for i, grant in enumerate(grants):
-            score = BASE_FALLBACK_SCORE - (i * FALLBACK_SCORE_DECAY)
-            if score < org.match_threshold:
-                continue
-
+        for grant in grants:
             existing = existing_rows.get(grant.id)
             if existing:
                 explanation = existing.explanation
             else:
                 explanation = self._generate_explanation(org_profile_text, grant, grant.id)
-                self._save_match(org, grant.id, score, explanation)
+                self._save_match(org, grant.id, None, explanation)
 
             results.append(
                 schemas.GrantMatchOut(
                     id=grant.id,
                     organization_id=org.id,
                     grant_id=grant.id,
-                    score=score,
+                    score=None,
+                    degraded=True,
                     explanation=explanation,
                     created_at=datetime.now(UTC),
                     grant=schemas.GrantOut.model_validate(grant),
@@ -323,7 +343,7 @@ class GrantMatchingService:
         self,
         org: models.Organization,
         grant_id: int,
-        score: float,
+        score: float | None,
         explanation: str,
     ) -> None:
         """Persist a GrantMatch record to cache the explanation.
