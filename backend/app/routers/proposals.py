@@ -37,6 +37,32 @@ _MONTHLY_LIMITS: dict[str, int | None] = {
     "agency": None,  # unlimited
 }
 
+# Subscription statuses that block proposal generation. Grace-window policy:
+# PAST_DUE is allowed while Stripe retries the payment; TRIALING/ACTIVE are
+# allowed; INACTIVE (never-subscribed freemium default) is allowed. Only a
+# subscription that has definitively lapsed is blocked.
+_BILLING_BLOCKED_STATUSES: set[models.SubscriptionStatus] = {
+    models.SubscriptionStatus.CANCELED,
+    models.SubscriptionStatus.UNPAID,
+}
+
+
+def _ensure_billing_active(org: models.Organization) -> None:
+    """Block LLM-consuming proposal work when the subscription has lapsed.
+
+    Grace window: PAST_DUE / TRIALING / ACTIVE / INACTIVE are allowed; only a
+    definitively lapsed subscription (CANCELED / UNPAID) is blocked. Applied to
+    every endpoint that dispatches a generation/regeneration task.
+    """
+    if org.subscription_status in _BILLING_BLOCKED_STATUSES:
+        error_response(
+            "BILLING_INACTIVE",
+            "Your subscription has lapsed. Update your billing details to continue "
+            "generating proposals.",
+            status_code=402,
+        )
+
+
 _TRACKING_TRANSITIONS: dict[models.ApplicationStatus, set[models.ApplicationStatus]] = {
     models.ApplicationStatus.DRAFT: {
         models.ApplicationStatus.SUBMITTED,
@@ -140,6 +166,9 @@ def create_proposal(
     grant = db.query(models.Grant).filter(models.Grant.id == payload.grant_id).first()
     if not grant:
         error_response("NOT_FOUND", f"Grant with id {payload.grant_id} not found.", status_code=404)
+
+    # --- Enforce billing status (grace window: past_due still allowed) ---
+    _ensure_billing_active(org)
 
     # --- Enforce usage limits (FR-21) ---
     limit = _usage_limit_for_tier(org.subscription_tier)
@@ -455,6 +484,12 @@ def regenerate_proposal_section(
     ),
 ) -> models.ProposalSection:
     _get_scoped_section(db, proposal_id, section_id, current_user.organization_id)
+
+    # --- Enforce billing status before consuming LLM compute (grace window) ---
+    org = db.get(models.Organization, current_user.organization_id)
+    if org is not None:
+        _ensure_billing_active(org)
+
     job_id = str(uuid.uuid4())
     updated = (
         db.query(models.ProposalSection)
