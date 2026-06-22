@@ -10,7 +10,7 @@
 1. **Branch from `main`.** Branch name format: `<type>/<short-kebab-slug>`
    - `feat/<slug>`, `fix/<slug>`, `refactor/<slug>`, `chore/<slug>`, `docs/<slug>`.
 2. **Follow the [Conventional Commits](https://www.conventionalcommits.org/)
-   format** for all commit messages. See `git log --oneline` for examples.
+   format** for all commit messages.
 3. **Run all quality gates locally before opening a PR:**
    - `cd backend && ruff check . && ruff format --check . && pytest -q`
    - `cd frontend && npm run lint && npm run test:unit -- --coverage && npx tsc --noEmit`
@@ -28,17 +28,14 @@
 
 ## Architecture decisions
 
-- Read the existing ADRs in `backend/docs/adr/` (`0001-*.md` and
-  `0002-*.md`) before proposing changes that affect storage, session
-  management, RAG, or auth.
-- For new ADRs, copy `backend/docs/adr/0000-template.md` (when present)
-  and link any superseded decisions.
+- For backend architecture, consult `.planning/codebase/ARCHITECTURE.md`.
+- ADRs are stored in `backend/docs/adr/` (e.g., `0001-local-storage-fallback.md`,
+  `0002-secure-cookie-session-management.md`).
+- For new ADRs, copy an existing ADR and link any superseded decisions.
 
 ## Coding standards
 
-The full standards live in `~/.claude/rules/ecc/` (English) and
-`~/.claude/rules/ecc/zh/` (Chinese mirror), and in
-`.claude/CLAUDE.md` for project-level overrides. Highlights:
+Project-level standards are documented in `.claude/CLAUDE.md`. Highlights:
 
 - **Backend:** Python 3.12, FastAPI async, SQLAlchemy 2.0 `Mapped`
   types, Pydantic v2 schemas, parameterized queries, bcrypt for

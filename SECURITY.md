@@ -58,7 +58,7 @@ The repository's defense-in-depth includes:
 - bcrypt password hashing (no passlib).
 - JWT with `verify_exp: true` and HS256 only.
 - `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`.
-- Content-Security-Policy with per-request nonce.
+- Content-Security-Policy with per-request nonce (no `unsafe-inline`).
 - Account-lockout service backed by Redis with `/health` observability.
 - SSRF guard on outbound HTTP (`services/discovery.py`).
 - RAG prompt-injection mitigation (`services/extraction.py`).
@@ -66,6 +66,11 @@ The repository's defense-in-depth includes:
   (`routers/uploads.py`).
 - Per-IP rate limiting at the application layer (slowapi) and at the
   nginx gateway.
+- CSRF dual-token validation (cookie + `X-CSRF-Token` header) with
+  `Origin`/`Referer` checking.
+- Path traversal protection in local file storage (`services/s3.py`).
+- Frontend container runs as non-root (`USER node`).
+- SQLite multi-thread safety (`check_same_thread=False`, 30s timeout).
 
 ## Contact
 
