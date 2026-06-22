@@ -148,6 +148,26 @@ def apply_subscription_event(organization: Organization, subscription: Any) -> N
         organization.stripe_subscription_id = None
 
 
+def apply_invoice_event(organization: Organization, event_type: str) -> None:
+    """Update subscription status from invoice lifecycle (dunning) events.
+
+    Grace-window policy: a failed payment moves the org to ``past_due`` (Stripe
+    keeps retrying and access is preserved); a successful payment restores
+    ``active``. Definitive lapse (``unpaid``/``canceled``) arrives via the
+    ``customer.subscription.*`` events, not here.
+    """
+    if event_type == "invoice.payment_failed":
+        organization.subscription_status = SubscriptionStatus.PAST_DUE
+    elif (
+        # Only heal a previously-failed payment; authoritative status for every
+        # other state arrives via customer.subscription.* events, so a paid
+        # invoice must not stomp e.g. a trialing or canceled subscription.
+        event_type == "invoice.paid"
+        and organization.subscription_status == SubscriptionStatus.PAST_DUE
+    ):
+        organization.subscription_status = SubscriptionStatus.ACTIVE
+
+
 def _subscription_price_id(subscription: Any) -> str | None:
     items = _object_value(subscription, "items")
     data = _object_value(items, "data") if items is not None else None
