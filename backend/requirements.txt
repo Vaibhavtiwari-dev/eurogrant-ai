@@ -293,3 +293,4 @@ xxhash==3.7.0
 zstandard==0.25.0
     # via langsmith
 aiosqlite==0.20.0
+sentry-sdk[fastapi,celery]==2.19.2
