@@ -1,5 +1,7 @@
 import logging
 import secrets
+import uuid
+from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +17,7 @@ from .auth import get_current_user
 from .config import EnvironmentEnum, settings
 from .database import get_async_db
 from .limiter import limiter
+from .logging_config import request_id_ctx_var, setup_logging
 from .routers import auth as auth_router
 from .routers import billing as billing_router
 from .routers import grants as grants_router
@@ -22,15 +25,67 @@ from .routers import organizations as organizations_router
 from .routers import proposals as proposals_router
 from .routers import uploads as uploads_router
 
+setup_logging()
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if settings.SENTRY_DSN:
+        import sentry_sdk
+
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN,
+            environment=settings.ENVIRONMENT.value,
+            traces_sample_rate=0.1,
+        )
+
+    if settings.OPENAI_API_KEY:
+        try:
+            from .services.llm_client import get_openai_client
+
+            client = get_openai_client()
+            response = client.embeddings.create(
+                model=settings.EMBEDDING_MODEL, input=["coherence check"]
+            )
+            dim = len(response.data[0].embedding)
+            if dim != settings.EMBEDDING_DIMENSION:
+                raise RuntimeError(
+                    f"Configured EMBEDDING_DIMENSION ({settings.EMBEDDING_DIMENSION}) "
+                    f"does not match actual dimension from {settings.EMBEDDING_MODEL} ({dim})"
+                )
+            logger.info("Embedding coherence check passed (dim=%d)", dim)
+        except RuntimeError:
+            raise
+        except Exception as e:
+            logger.warning("Embedding coherence check failed to call API: %s", e)
+    else:
+        logger.warning("OPENAI_API_KEY is missing; skipping embedding coherence check")
+
+    yield
+
 
 app = FastAPI(
     title="EuroGrant AI API",
     docs_url=None if settings.ENVIRONMENT == EnvironmentEnum.PRODUCTION else "/docs",
     redoc_url=None if settings.ENVIRONMENT == EnvironmentEnum.PRODUCTION else "/redoc",
+    lifespan=lifespan,
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceededExc, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    request_id = str(uuid.uuid4())
+    token = request_id_ctx_var.set(request_id)
+    try:
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+    finally:
+        request_id_ctx_var.reset(token)
+
 
 # Determine allowed hosts for TrustedHostMiddleware.
 # Always include localhost variants and known production domains.
@@ -179,23 +234,31 @@ async def health_check():
         "redis": "unknown",
         "lockout_degraded": False,
     }
-    try:
+
+    def check_db():
         from .database import SessionLocal
 
         db = SessionLocal()
-        db.execute(text("SELECT 1"))
-        db.close()
+        try:
+            db.execute(text("SELECT 1"))
+        finally:
+            db.close()
+
+    try:
+        from anyio.to_thread import run_sync
+
+        await run_sync(check_db)
         health_status["database"] = "ok"
     except Exception:
         logger.warning("Health check: database unavailable", exc_info=True)
         health_status["database"] = "error"
         health_status["status"] = "degraded"
     try:
-        from redis import Redis as RedisClient
+        from redis.asyncio import Redis as AsyncRedis
 
-        r = RedisClient.from_url(settings.CELERY_BROKER_URL)
-        r.ping()
-        r.close()
+        r = AsyncRedis.from_url(settings.CELERY_BROKER_URL)
+        await r.ping()
+        await r.aclose()
         health_status["redis"] = "ok"
     except Exception:
         logger.warning("Health check: Redis unavailable", exc_info=True)
