@@ -18,7 +18,7 @@ anyio==4.13.0
     #   openai
     #   starlette
     #   watchfiles
-bcrypt==4.3.0
+bcrypt==5.0.0
     # via -r requirements.in
 beautifulsoup4==4.15.0
     # via -r requirements.in
@@ -31,13 +31,15 @@ botocore==1.43.29
     #   boto3
     #   s3transfer
 celery==5.6.3
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   sentry-sdk
 certifi==2026.5.20
     # via
     #   httpcore
     #   httpx
-    #   pinecone
     #   requests
+    #   sentry-sdk
 cffi==2.0.0
     # via cryptography
 charset-normalizer==3.4.7
@@ -58,11 +60,6 @@ click-plugins==1.1.1.2
     # via celery
 click-repl==0.3.0
     # via celery
-colorama==0.4.6
-    # via
-    #   click
-    #   tqdm
-    #   uvicorn
 cryptography==49.0.0
     # via pdfminer-six
 deprecated==1.3.1
@@ -74,22 +71,31 @@ dnspython==2.8.0
 email-validator==2.3.0
     # via pydantic
 fastapi==0.136.3
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   sentry-sdk
 greenlet==3.5.1
     # via sqlalchemy
 h11==0.16.0
     # via
     #   httpcore
     #   uvicorn
+h2==4.3.0
+    # via httpx
+hpack==4.1.0
+    # via h2
 httpcore==1.0.9
     # via httpx
 httptools==0.8.0
     # via uvicorn
-httpx==0.28.1
+httpx[http2]==0.28.1
     # via
     #   -r requirements.in
     #   langsmith
     #   openai
+    #   pinecone
+hyperframe==6.1.0
+    # via h2
 idna==3.18
     # via
     #   anyio
@@ -128,10 +134,14 @@ markupsafe==3.0.3
     # via
     #   jinja2
     #   mako
-openai==1.109.1
+msgspec==0.21.1
+    # via pinecone
+openai==2.43.0
     # via -r requirements.in
 orjson==3.11.9
-    # via langsmith
+    # via
+    #   langsmith
+    #   pinecone
 packaging==26.2
     # via
     #   kombu
@@ -146,14 +156,8 @@ pillow==12.2.0
     # via
     #   pdfplumber
     #   reportlab
-pinecone==5.4.2
+pinecone==9.1.0
     # via -r requirements.in
-pinecone-plugin-inference==3.1.0
-    # via pinecone
-pinecone-plugin-interface==0.0.7
-    # via
-    #   pinecone
-    #   pinecone-plugin-inference
 prompt-toolkit==3.0.52
     # via click-repl
 psycopg2-binary==2.9.12
@@ -173,16 +177,13 @@ pydantic-core==2.46.4
 pydantic-settings==2.14.1
     # via -r requirements.in
 pyjwt==2.13.0
-    # via
-    #   -r requirements.in
-    #   redis
+    # via -r requirements.in
 pypdfium2==5.9.0
     # via pdfplumber
 python-dateutil==2.9.0.post0
     # via
     #   botocore
     #   celery
-    #   pinecone
 python-docx==1.2.0
     # via -r requirements.in
 python-dotenv==1.2.2
@@ -196,9 +197,9 @@ pyyaml==6.0.3
     # via
     #   langchain-core
     #   uvicorn
-redis==5.3.1
+redis==8.0.0
     # via -r requirements.in
-reportlab==4.5.1
+reportlab==5.0.0
     # via -r requirements.in
 requests==2.34.2
     # via
@@ -209,6 +210,8 @@ requests-toolbelt==1.0.0
     # via langsmith
 s3transfer==0.18.0
     # via boto3
+sentry-sdk[celery,fastapi]==2.19.2
+    # via -r requirements.in
 six==1.17.0
     # via python-dateutil
 slowapi==0.1.10
@@ -230,9 +233,7 @@ stripe==15.2.1
 tenacity==9.1.4
     # via langchain-core
 tqdm==4.68.2
-    # via
-    #   openai
-    #   pinecone
+    # via openai
 typing-extensions==4.15.0
     # via
     #   alembic
@@ -243,7 +244,6 @@ typing-extensions==4.15.0
     #   langchain-protocol
     #   limits
     #   openai
-    #   pinecone
     #   pydantic
     #   pydantic-core
     #   python-docx
@@ -257,22 +257,22 @@ typing-inspection==0.4.2
     #   pydantic
     #   pydantic-settings
 tzdata==2026.2
-    # via
-    #   kombu
-    #   tzlocal
+    # via kombu
 tzlocal==5.3.1
     # via celery
 urllib3==2.7.0
     # via
     #   botocore
-    #   pinecone
     #   requests
+    #   sentry-sdk
 uuid-utils==0.16.0
     # via
     #   langchain-core
     #   langsmith
 uvicorn[standard]==0.49.0
     # via -r requirements.in
+uvloop==0.22.1
+    # via uvicorn
 vine==5.1.0
     # via
     #   amqp
@@ -292,5 +292,3 @@ xxhash==3.7.0
     # via langsmith
 zstandard==0.25.0
     # via langsmith
-aiosqlite==0.20.0
-sentry-sdk[fastapi,celery]==2.19.2
