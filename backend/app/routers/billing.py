@@ -13,6 +13,7 @@ from ..services.stripe_service import (
     BillingConfigurationError,
     BillingProviderError,
     StripeBillingService,
+    apply_invoice_event,
     apply_subscription_event,
 )
 
@@ -122,6 +123,8 @@ async def stripe_webhook(
         "customer.subscription.deleted",
     }:
         _apply_subscription_changed(db, event_object)
+    elif event_type in {"invoice.payment_failed", "invoice.paid"}:
+        _apply_invoice_event(db, event_type, event_object)
 
     db.add(
         models.BillingWebhookEvent(
@@ -175,6 +178,28 @@ def _apply_subscription_changed(db: Session, subscription: Any) -> None:
         logger.warning("Ignoring subscription event without a matching organization")
         return
     apply_subscription_event(organization, subscription)
+
+
+def _apply_invoice_event(db: Session, event_type: str, invoice: Any) -> None:
+    subscription_id = _value(invoice, "subscription")
+    customer_id = _value(invoice, "customer")
+    organization = None
+    if isinstance(subscription_id, str):
+        organization = (
+            db.query(models.Organization)
+            .filter(models.Organization.stripe_subscription_id == subscription_id)
+            .first()
+        )
+    if organization is None and isinstance(customer_id, str):
+        organization = (
+            db.query(models.Organization)
+            .filter(models.Organization.stripe_customer_id == customer_id)
+            .first()
+        )
+    if organization is None:
+        logger.warning("Ignoring invoice event without a matching organization")
+        return
+    apply_invoice_event(organization, event_type)
 
 
 def _value(value: Any, key: str) -> Any:
