@@ -48,6 +48,8 @@ class Settings(BaseSettings):
 
     APP_BASE_URL: str = "https://eurogrant.ai"
 
+    SENTRY_DSN: str | None = None
+
     STRIPE_SECRET_KEY: str | None = None
     STRIPE_WEBHOOK_SECRET: str | None = None
     STRIPE_GROWTH_PRICE_ID: str | None = None
@@ -96,6 +98,25 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "Production Redis connections to non-private hosts must use rediss://"
                 )
+        return self
+
+    @model_validator(mode="after")
+    def validate_production_secrets(self) -> Self:
+        if self.ENVIRONMENT not in (EnvironmentEnum.PRODUCTION, EnvironmentEnum.STAGING):
+            return self
+
+        required_keys = [
+            "OPENAI_API_KEY",
+            "PINECONE_API_KEY",
+            "STRIPE_SECRET_KEY",
+            "STRIPE_WEBHOOK_SECRET",
+            "AWS_ACCESS_KEY_ID",
+            "AWS_SECRET_ACCESS_KEY",
+            "S3_BUCKET_NAME",
+        ]
+        for key in required_keys:
+            if not getattr(self, key):
+                raise ValueError(f"{key} must be set in production/staging environments")
         return self
 
 

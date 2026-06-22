@@ -11,6 +11,13 @@ def _production_settings(**overrides):
         "JWT_SECRET": "test-secret",
         "CELERY_BROKER_URL": "redis://:redis-password@redis:6379/0",
         "CELERY_RESULT_BACKEND": "redis://:redis-password@redis:6379/0",
+        "OPENAI_API_KEY": "test-key",
+        "PINECONE_API_KEY": "test-key",
+        "STRIPE_SECRET_KEY": "test-key",
+        "STRIPE_WEBHOOK_SECRET": "test-key",
+        "AWS_ACCESS_KEY_ID": "test-key",
+        "AWS_SECRET_ACCESS_KEY": "test-key",
+        "S3_BUCKET_NAME": "test-bucket",
     }
     values.update(overrides)
     return Settings(_env_file=None, **values)
