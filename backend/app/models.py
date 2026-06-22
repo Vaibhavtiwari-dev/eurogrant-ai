@@ -300,7 +300,7 @@ class GrantMatch(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))
     grant_id: Mapped[int] = mapped_column(ForeignKey("grants.id"))
-    score: Mapped[float] = mapped_column(Float)
+    score: Mapped[float | None] = mapped_column(Float, nullable=True)
     explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

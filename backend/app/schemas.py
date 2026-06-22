@@ -195,7 +195,8 @@ class GrantMatchOut(BaseModel):
     id: int
     organization_id: int
     grant_id: int
-    score: float
+    score: float | None = None
+    degraded: bool = False
     explanation: str | None = None
     created_at: datetime
     grant: GrantOut
