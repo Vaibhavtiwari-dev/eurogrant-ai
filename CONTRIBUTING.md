@@ -14,6 +14,14 @@
 3. **Run all quality gates locally before opening a PR:**
    - `cd backend && ruff check . && ruff format --check . && pytest -q`
    - `cd frontend && npm run lint && npm run test:unit -- --coverage && npx tsc --noEmit`
+   - **Use npm 10 for the frontend.** CI (`node:20`) and the frontend Docker
+     image (`node:20-alpine`) both ship npm 10. A `package-lock.json`
+     regenerated under npm 11+ omits the platform-specific optional
+     dependency entries npm 10 requires, so `npm ci` passes locally but
+     fails in CI with `EUSAGE … out of sync`. If you change frontend
+     dependencies, regenerate the lock with npm 10
+     (`npx -y npm@10 install --package-lock-only`) and verify with
+     `npx -y npm@10 ci`.
 4. **Open a PR** using the `.github/PULL_REQUEST_TEMPLATE.md` checklist.
 5. **Pass CI.** All jobs (lint, type-check, unit, integration, Docker
    build) must be green. Coverage must stay at or above 80% lines.

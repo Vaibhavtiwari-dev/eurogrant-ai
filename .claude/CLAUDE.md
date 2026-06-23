@@ -58,6 +58,13 @@ exceptions:
    writing tests first; the deleted hook had a stale-closure bug.
 5. **No `alert()` in the frontend.** Use `sonner` (already mounted at
    `app/[locale]/layout.tsx`).
+6. **Frontend lockfile must be generated with npm 10.** CI and the
+   frontend Docker image both run `node:20` (npm 10). A lock regenerated
+   under npm 11+ drops optional platform deps (`@esbuild/*`) and breaks
+   `npm ci` in CI with `EUSAGE … out of sync`, even though it passes
+   locally. Regenerate with `npx -y npm@10 install --package-lock-only`.
+   Also note: `@sentry/nextjs` must be `^10` (v8/v9 peer-cap at Next 15;
+   this repo runs Next 16).
 
 ## Plan status
 
