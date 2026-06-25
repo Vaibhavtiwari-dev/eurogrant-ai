@@ -164,3 +164,21 @@ jobs:
           tags: eurogrant-frontend:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy-staging:
+    needs: [backend, frontend, docker-build]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy to staging
+        run: echo "Deploying to staging environment..."
+        # Add actual deployment steps here
+
+  notify-failure:
+    needs: [backend, frontend, docker-build, deploy-staging]
+    runs-on: ubuntu-latest
+    if: failure()
+    steps:
+      - name: Notify on failure
+        run: echo "Pipeline failed! Sending notification..."
+        # Add actual slack/email notification action here
