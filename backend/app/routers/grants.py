@@ -25,6 +25,10 @@ def _run_vector_search(query: str, limit: int) -> list[int]:
     return get_vector_service().query_grants(query, limit=limit)
 
 
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _build_sql_query(db: Session, search_req: schemas.GrantSearchRequest, grant_ids: list[int]):
     """Build the SQLAlchemy query for grant search with optional vector IDs."""
     query = db.query(models.Grant)
@@ -32,12 +36,12 @@ def _build_sql_query(db: Session, search_req: schemas.GrantSearchRequest, grant_
     if grant_ids:
         query = query.filter(models.Grant.id.in_(grant_ids))
     elif search_req.query:
-        search_pattern = f"%{search_req.query}%"
+        search_pattern = f"%{_escape_like(search_req.query)}%"
         query = query.filter(
             or_(
-                models.Grant.title.ilike(search_pattern),
-                models.Grant.description.ilike(search_pattern),
-                models.Grant.eligibility_criteria.ilike(search_pattern),
+                models.Grant.title.ilike(search_pattern, escape="\\"),
+                models.Grant.description.ilike(search_pattern, escape="\\"),
+                models.Grant.eligibility_criteria.ilike(search_pattern, escape="\\"),
             )
         )
 
