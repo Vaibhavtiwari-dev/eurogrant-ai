@@ -294,3 +294,5 @@ zstandard==0.25.0
     # via langsmith
 aiosqlite==0.20.0
 sentry-sdk[fastapi,celery]==2.19.2
+prometheus-fastapi-instrumentator==7.0.0
+    # via -r requirements.in
