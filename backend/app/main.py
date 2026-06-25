@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded as RateLimitExceededExc
 from sqlalchemy import select, text
@@ -223,6 +224,8 @@ api_v1_router.include_router(billing_router.router)
 
 # Include versioned router in app
 app.include_router(api_v1_router)
+
+Instrumentator().instrument(app).expose(app)
 
 
 # Health Check Endpoint
