@@ -1,6 +1,7 @@
 import createMiddleware from 'next-intl/middleware';
 import {routing} from './i18n/routing';
 import {NextRequest, NextResponse} from 'next/server';
+import {buildCsp} from './lib/csp';
 
 const intlMiddleware = createMiddleware(routing);
 
@@ -9,35 +10,6 @@ const publicPaths = ['/', '/login', '/register'];
 function isPublicPath(pathname: string) {
   const stripped = pathname.replace(/^\/[a-z]{2}(\/|$)/, '/');
   return publicPaths.some(p => stripped === p || stripped.startsWith(p + '/'));
-}
-
-function buildCsp(nonce: string): string {
-  const connectSources = new Set(["'self'", 'https://eurogrant.ai']);
-  const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL;
-
-  if (configuredApiUrl) {
-    try {
-      const apiUrl = new URL(configuredApiUrl);
-      if (apiUrl.protocol === 'http:' || apiUrl.protocol === 'https:') {
-        connectSources.add(apiUrl.origin);
-      }
-    } catch {
-      // Invalid deployment configuration remains blocked by the CSP.
-    }
-  }
-
-  return [
-    "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https:",
-    "font-src 'self' data:",
-    `connect-src ${Array.from(connectSources).join(' ')}`,
-    "frame-ancestors 'none'",
-    "form-action 'self'",
-    "base-uri 'self'",
-    "object-src 'none'",
-  ].join('; ');
 }
 
 export default function proxy(request: NextRequest) {
